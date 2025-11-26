@@ -1,5 +1,5 @@
 # Card-Matching-Game
-一个基于cocos2d-x引擎开发的小游戏
+
 一个基于 Cocos2d-x 引擎开发的卡牌匹配游戏，采用经典的 MVC 架构设计，支持关卡配置和回退功能。
 
 ✨ 游戏特色
@@ -30,27 +30,47 @@ UNDO按钮：回退上一步操作
 核心架构模式
 text
 MVC (Model-View-Controller) 模式
+
 ├── Model (数据层)
+
 ├── View (视图层) 
+
 └── Controller (控制层)
+
 目录结构
 text
 Classes/
-├── controllers/          # 控制器
+
+├── controllers/  # 控制器
+
 │   └── GameController.h/cpp
+
 ├── models/              # 数据模型
+
 │   ├── GameModel.h/cpp
+
 │   ├── CardModel.h/cpp
+
 │   └── CardTypes.h
+
 ├── views/               # 视图组件
+
 │   ├── GameView.h/cpp
+
 │   └── CardView.h/cpp
+
 ├── services/            # 服务层
+
 │   ├── CardService.h/cpp
+
 │   ├── CardGeneratorService.h/cpp
+
 │   └── GameModelGenerator.h/cpp
+
 ├── managers/            # 管理器
+
 │   └── UndoManager.h/cpp
+
 └── configs/             # 配置管理
     ├── models/
     │   └── LevelConfig.h
