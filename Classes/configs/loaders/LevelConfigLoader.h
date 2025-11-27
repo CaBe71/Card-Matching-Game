@@ -18,6 +18,14 @@ public:
     static LevelConfig* loadLevelConfig(int levelId);
 
     /**
+     * @brief 根据难度级别加载关卡配置
+     * @param levelId 关卡ID
+     * @param difficulty 难度级别 (1-简单, 2-中等, 3-困难)
+     * @return 关卡配置对象
+     */
+    static LevelConfig* loadLevelConfigWithDifficulty(int levelId, int difficulty);
+
+    /**
      * @brief 从文件加载关卡配置
      * @param filename 文件名
      * @return 关卡配置对象

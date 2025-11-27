@@ -7,6 +7,7 @@ class CardService
 {
 public:
     static bool canMatch(const CardModel* card1, const CardModel* card2);
+    static std::string getFaceString(CardFaceType face);
     static CardModel* findTopCard(const std::vector<CardModel*>& cards);
     static int generateCardId();
 
@@ -18,4 +19,4 @@ private:
     static int _nextCardId;
 };
 
-#endif // CARD_SERVICE_H
+#endif

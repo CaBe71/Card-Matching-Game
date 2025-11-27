@@ -65,13 +65,7 @@ private:
      */
     bool handlePlayfieldCardClick(int cardId);
 
-    /**
-     * @brief 处理主牌区卡牌移动到底牌
-     * @param clickedCard 被点击的卡牌
-     * @return 是否处理成功
-     */
-    bool handlePlayfieldCardToBottom(CardModel* clickedCard);
-
+    bool handlePlayfieldCardClick(CardModel* playfieldCard);
     /**
      * @brief 处理底牌点击（从备用牌堆抽牌）
      * @param clickedCard 被点击的底牌
@@ -103,6 +97,10 @@ private:
      * @return 是否成功抽取
      */
     bool drawCardFromReserve();
+
+    bool drawFromReserveToHand();
+
+    bool handleHandCardClick(CardModel* handCard);
 
 private:
     GameModel* _gameModel;          // 游戏数据模型

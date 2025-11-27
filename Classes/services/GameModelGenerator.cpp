@@ -23,7 +23,7 @@ GameModel* GameModelGenerator::generateFromLevelConfig(const LevelConfig* levelC
     }
     gameModel->setPlayFieldCards(playFieldCards);
 
-    // 生成备用牌堆
+    // ?? 修复：生成备用牌堆（包含所有备用牌）
     std::vector<CardModel*> reserveCards;
     const std::vector<CardConfig>& reserveConfigs = levelConfig->reserveCards;
     for (const auto& cardConfig : reserveConfigs) {
@@ -35,27 +35,56 @@ GameModel* GameModelGenerator::generateFromLevelConfig(const LevelConfig* levelC
     }
     gameModel->setReserveCards(reserveCards);
 
-    // 设置初始底牌（从备用牌堆抽取第一张）
+    // ?? 修复：生成手牌区卡牌
+    std::vector<CardModel*> stackCards;
+    const std::vector<CardConfig>& stackConfigs = levelConfig->stackCards;
+    for (const auto& cardConfig : stackConfigs) {
+        int cardId = CardService::generateCardId();
+        CardModel* cardModel = createCardModel(cardConfig, cardId);
+        if (cardModel) {
+            stackCards.push_back(cardModel);
+        }
+    }
+    gameModel->setStackCards(stackCards);
+
+    // ?? 修复：设置初始底牌（从备用牌堆抽取第一张）
     if (!reserveCards.empty()) {
         // 从备用牌堆抽取底牌
-        CardModel* initialBottomCard = gameModel->drawFromReserve();
-        if (initialBottomCard) {
-            // 正确设置底牌位置和状态
-            initialBottomCard->setPosition(Vec2(540, 290)); // 底牌位置
+        std::vector<CardModel*> newReserveCards = reserveCards;
+        CardModel* initialBottomCard = newReserveCards.back();
+        newReserveCards.pop_back(); // 从备用牌堆移除
+
+        // 设置底牌和更新备用牌堆
+        initialBottomCard->setPosition(Vec2(540, 290));
+        initialBottomCard->setTopCard(true);
+        initialBottomCard->setInPlayfield(false);
+        gameModel->setBottomCard(initialBottomCard);
+        gameModel->setReserveCards(newReserveCards);
+
+        CCLOG("? Initial bottom card set: ID=%d, Face=%d",
+            initialBottomCard->getCardId(), initialBottomCard->getFace());
+    }
+    else {
+        CCLOG("? WARNING: No reserve cards for initial bottom card");
+        // ?? 如果没有备用牌，从手牌区抽取
+        if (!stackCards.empty()) {
+            std::vector<CardModel*> newStackCards = stackCards;
+            CardModel* initialBottomCard = newStackCards.back();
+            newStackCards.pop_back();
+
+            initialBottomCard->setPosition(Vec2(540, 290));
             initialBottomCard->setTopCard(true);
             initialBottomCard->setInPlayfield(false);
             gameModel->setBottomCard(initialBottomCard);
+            gameModel->setStackCards(newStackCards);
 
-            CCLOG("? Initial bottom card set: ID=%d, Face=%d",
+            CCLOG("? Initial bottom card from stack: ID=%d, Face=%d",
                 initialBottomCard->getCardId(), initialBottomCard->getFace());
         }
     }
-    else {
-        CCLOG("WARNING: No reserve cards for initial bottom card");
-    }
 
-    CCLOG("Game model generated: %zu playfield, %zu reserve",
-        playFieldCards.size(), gameModel->getAllReserveCards().size());
+    CCLOG("Game model generated: %zu playfield, %zu stack, %zu reserve",
+        playFieldCards.size(), stackCards.size(), gameModel->getAllReserveCards().size());
 
     return gameModel;
 }

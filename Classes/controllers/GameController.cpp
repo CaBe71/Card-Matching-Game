@@ -33,8 +33,8 @@ void GameController::startGame(int levelId)
     CCLOG("=== Starting Game ===");
     CCLOG("Level ID: %d", levelId);
 
-    // 加载关卡配置
-    LevelConfig* levelConfig = LevelConfigLoader::loadLevelConfig(levelId);
+    // ?? 使用新的随机生成方法，设置中等难度
+    LevelConfig* levelConfig = LevelConfigLoader::loadLevelConfigWithDifficulty(levelId, 2);
     if (!levelConfig) {
         CCLOG("ERROR: Failed to load level config: %d", levelId);
         return;
@@ -108,10 +108,37 @@ bool GameController::handleCardClick(int cardId)
         return false;
     }
 
+    // ?? 首先检查是否是底牌的特殊点击
+    CardModel* bottomCard = _gameModel->getBottomCard();
+    if (bottomCard && bottomCard->getCardId() == cardId) {
+        CCLOG("Bottom card clicked directly: ID=%d", cardId);
+        // ?? 底牌点击：从备牌堆抽牌
+        return drawFromReserveToHand();
+    }
+
     // 获取点击的卡牌
     CardModel* clickedCard = _gameModel->getCardById(cardId);
     if (!clickedCard) {
         CCLOG("ERROR: Card not found: %d", cardId);
+
+        // ?? 调试：列出所有卡牌
+        CCLOG("Available cards:");
+        auto allCards = _gameModel->getAllPlayfieldCards();
+        for (auto card : allCards) {
+            CCLOG("  Playfield - ID: %d, Face: %d", card->getCardId(), card->getFace());
+        }
+        auto stackCards = _gameModel->getAllStackCards();
+        for (auto card : stackCards) {
+            CCLOG("  Stack - ID: %d, Face: %d", card->getCardId(), card->getFace());
+        }
+        auto reserveCards = _gameModel->getAllReserveCards();
+        for (auto card : reserveCards) {
+            CCLOG("  Reserve - ID: %d, Face: %d", card->getCardId(), card->getFace());
+        }
+        if (bottomCard) {
+            CCLOG("  Bottom - ID: %d, Face: %d", bottomCard->getCardId(), bottomCard->getFace());
+        }
+
         return false;
     }
 
@@ -119,98 +146,201 @@ bool GameController::handleCardClick(int cardId)
         clickedCard->getCardId(), clickedCard->getFace(),
         clickedCard->getSuit(), clickedCard->isInPlayfield());
 
-    // 根据开源项目逻辑，区分处理
+    // ?? 简化逻辑：只处理主牌区卡牌
     if (clickedCard->isInPlayfield()) {
-        // 主牌区卡牌：检查是否能与底牌匹配
-        return handlePlayfieldCardToBottom(clickedCard);
+        // 主牌区卡牌：与底牌匹配
+        return handlePlayfieldCardClick(clickedCard);
     }
     else {
-        // 底牌或其他区域卡牌：从备用牌堆抽牌
-        return handleBottomCardClick(clickedCard);
+        CCLOG("Non-playfield card clicked, no action defined");
+        return false;
     }
 }
 
-bool GameController::handlePlayfieldCardToBottom(CardModel* clickedCard)
+bool GameController::handleHandCardClick(CardModel* handCard)
 {
-    CCLOG("=== Handling Playfield Card to Bottom ===");
+    CCLOG("=== Handling Hand Card Click ===");
 
-    CardModel* currentBottomCard = _gameModel->getBottomCard();
-
-    if (!currentBottomCard) {
-        CCLOG("ERROR: No current bottom card");
+    CardModel* bottomCard = _gameModel->getBottomCard();
+    if (!bottomCard) {
+        CCLOG("ERROR: No bottom card to match with");
         return false;
     }
 
-    CCLOG("Current bottom card: ID=%d, Face=%d",
-        currentBottomCard->getCardId(), currentBottomCard->getFace());
-    CCLOG("Clicked playfield card: ID=%d, Face=%d",
-        clickedCard->getCardId(), clickedCard->getFace());
+    CCLOG("Hand card: ID=%d, Face=%d", handCard->getCardId(), handCard->getFace());
+    CCLOG("Bottom card: ID=%d, Face=%d", bottomCard->getCardId(), bottomCard->getFace());
 
-    // 检查匹配条件（点数差1）
-    if (!CardService::canMatch(clickedCard, currentBottomCard)) {
-        CCLOG("Cards cannot match: %d and %d (difference: %d)",
-            clickedCard->getFace(), currentBottomCard->getFace(),
-            abs(clickedCard->getFace() - currentBottomCard->getFace()));
+    // 检查匹配条件
+    int handFace = handCard->getFace();
+    int bottomFace = bottomCard->getFace();
+    int diff = abs(handFace - bottomFace);
+
+    CCLOG("Hand match calculation: %d - %d = %d (absolute: %d)",
+        handFace, bottomFace, handFace - bottomFace, diff);
+
+    // ?? 修复：添加A和K的特殊匹配
+    bool canMatch = (diff == 1);
+    if (!canMatch) {
+        // 检查是否是 A 和 K 的情况
+        if ((handFace == 0 && bottomFace == 12) || (handFace == 12 && bottomFace == 0)) {
+            canMatch = true;
+            CCLOG("Special match: A and K can match");
+        }
+    }
+
+    if (!canMatch) {
+        CCLOG("? Hand card cannot match with bottom card: difference is %d, need 1", diff);
         return false;
     }
 
-    CCLOG("? Cards can match! Moving card %d to bottom", clickedCard->getCardId());
+    CCLOG("? Hand card matches bottom card! Processing...");
 
-    // 记录原始位置用于回退
-    Vec2 originalPosition = clickedCard->getPosition();
+    // 记录原始位置
+    Vec2 originalPosition = handCard->getPosition();
 
     // 记录回退动作
-    recordUndoAction(clickedCard, originalPosition, currentBottomCard);
+    recordUndoAction(handCard, originalPosition, bottomCard);
 
-    // 更新卡牌状态
-    // 1. 移除点击的卡牌从主牌区
-    _gameModel->removePlayfieldCard(clickedCard->getCardId());
+    // 手牌与底牌匹配的逻辑
+    // 1. 从手牌区移除
+    _gameModel->removeStackCard(handCard->getCardId());
 
-    // 2. 将当前底牌移动到弃牌区（隐藏）
-    currentBottomCard->setPosition(Vec2(-1000, -1000));
-    currentBottomCard->setTopCard(false);
+    // 2. 设置手牌为新的底牌
+    handCard->setPosition(Vec2(540, 290));
+    handCard->setTopCard(true);
+    handCard->setInPlayfield(false);
+    _gameModel->setBottomCard(handCard);
 
-    // 3. 设置点击的卡牌为新的底牌
-    clickedCard->setPosition(Vec2(540, 290)); // 底牌位置
-    clickedCard->setTopCard(true);
-    clickedCard->setInPlayfield(false);
-    _gameModel->setBottomCard(clickedCard);
+    // 3. 旧底牌移到弃牌区
+    bottomCard->setPosition(Vec2(-1000, -1000));
+    bottomCard->setTopCard(false);
+    bottomCard->setInPlayfield(false);
 
-    CCLOG("? New bottom card set: %d", clickedCard->getCardId());
-
-    // 在被移除的位置生成新的随机卡牌
-    CardModel* newCard = CardService::generateRandomCardAtPosition(originalPosition);
-    if (newCard) {
-        _gameModel->addPlayfieldCard(newCard);
-        CCLOG("? Generated new random card at (%.1f, %.1f): ID=%d",
-            originalPosition.x, originalPosition.y, newCard->getCardId());
-    }
+    CCLOG("? New bottom card: ID=%d, Face=%d", handCard->getCardId(), handCard->getFace());
 
     // 播放动画
-    _gameView->playCardMatchAnimation(clickedCard->getCardId(), Vec2(540, 290));
+    _gameView->playCardMatchAnimation(handCard->getCardId(), Vec2(540, 290));
 
     // 刷新视图
     refreshGameView();
 
-    CCLOG("? Successfully moved card %d to bottom", clickedCard->getCardId());
+    CCLOG("? Successfully matched hand card with bottom card");
     return true;
 }
 
-bool GameController::handleBottomCardClick(CardModel* clickedCard)
+bool GameController::handlePlayfieldCardClick(CardModel* playfieldCard)
 {
-    CCLOG("=== Handling Bottom Card Click ===");
+    CCLOG("=== Handling Playfield Card Click ===");
 
-    // 检查点击的是否真的是底牌
-    CardModel* currentBottomCard = _gameModel->getBottomCard();
-    if (!currentBottomCard || currentBottomCard->getCardId() != clickedCard->getCardId()) {
-        CCLOG("Not a bottom card click");
+    CardModel* bottomCard = _gameModel->getBottomCard();
+    if (!bottomCard) {
+        CCLOG("ERROR: No bottom card to match with");
         return false;
     }
 
-    CCLOG("Bottom card clicked, drawing from reserve...");
+    CCLOG("Playfield card: ID=%d, Face=%d", playfieldCard->getCardId(), playfieldCard->getFace());
+    CCLOG("Bottom card: ID=%d, Face=%d", bottomCard->getCardId(), bottomCard->getFace());
 
-    // 从备用牌堆抽牌
-    return drawCardFromReserve();
+    // 检查匹配条件
+    int playfieldFace = playfieldCard->getFace();
+    int bottomFace = bottomCard->getFace();
+    int diff = abs(playfieldFace - bottomFace);
+
+    CCLOG("Match calculation: %d - %d = %d (absolute: %d)",
+        playfieldFace, bottomFace, playfieldFace - bottomFace, diff);
+
+    // ?? 修复：添加A和K的特殊匹配
+    bool canMatch = (diff == 1);
+    if (!canMatch) {
+        // 检查是否是 A 和 K 的情况
+        if ((playfieldFace == 0 && bottomFace == 12) || (playfieldFace == 12 && bottomFace == 0)) {
+            canMatch = true;
+            CCLOG("Special match: A and K can match");
+        }
+    }
+
+    if (!canMatch) {
+        CCLOG("? Cards cannot match: difference is %d, need 1", diff);
+        return false;
+    }
+
+    CCLOG("? Cards can match! Processing match...");
+
+    // 记录原始位置
+    Vec2 originalPosition = playfieldCard->getPosition();
+
+    // 记录回退动作
+    recordUndoAction(playfieldCard, originalPosition, bottomCard);
+
+    // 主牌与底牌匹配的逻辑
+    // 1. 从主牌区移除
+    _gameModel->removePlayfieldCard(playfieldCard->getCardId());
+
+    // 2. 设置主牌为新的底牌
+    playfieldCard->setPosition(Vec2(540, 290));
+    playfieldCard->setTopCard(true);
+    playfieldCard->setInPlayfield(false);
+    _gameModel->setBottomCard(playfieldCard);
+
+    // 3. 旧底牌移到弃牌区
+    bottomCard->setPosition(Vec2(-1000, -1000));
+    bottomCard->setTopCard(false);
+    bottomCard->setInPlayfield(false);
+
+    CCLOG("? New bottom card: ID=%d, Face=%d", playfieldCard->getCardId(), playfieldCard->getFace());
+
+    // 4. 在原位置生成新的随机卡牌
+    CardModel* newCard = CardService::generateRandomCardAtPosition(originalPosition);
+    if (newCard) {
+        _gameModel->addPlayfieldCard(newCard);
+        CCLOG("? Generated new random card: ID=%d, Face=%d", newCard->getCardId(), newCard->getFace());
+    }
+
+    // 播放动画
+    _gameView->playCardMatchAnimation(playfieldCard->getCardId(), Vec2(540, 290));
+
+    // 刷新视图
+    refreshGameView();
+
+    CCLOG("? Successfully matched playfield card with bottom card");
+    return true;
+}
+
+bool GameController::drawFromReserveToHand()
+{
+    CCLOG("=== Drawing from Reserve to Hand ===");
+
+    if (!_gameModel->hasReserveCards()) {
+        CCLOG("? No reserve cards available");
+        return false;
+    }
+
+    // 从备牌堆抽牌
+    CardModel* newCard = _gameModel->drawFromReserve();
+    if (!newCard) {
+        CCLOG("ERROR: Failed to draw card from reserve");
+        return false;
+    }
+
+    CCLOG("? Drew card from reserve: ID=%d, Face=%d, Suit=%d",
+        newCard->getCardId(), newCard->getFace(), newCard->getSuit());
+
+    // ?? 添加到手牌区
+    newCard->setInPlayfield(false);
+    newCard->setPosition(Vec2(200 + (_gameModel->getAllStackCards().size() * 120), 150));
+    _gameModel->addStackCard(newCard);
+
+    // 记录回退动作
+    recordUndoAction(newCard, Vec2(0, 0));
+
+    // 播放动画
+    _gameView->playCardMatchAnimation(newCard->getCardId(), newCard->getPosition());
+
+    // 刷新视图
+    refreshGameView();
+
+    CCLOG("? Successfully drew card from reserve to hand");
+    return true;
 }
 
 bool GameController::handleStackCardClick(int cardId)
@@ -227,61 +357,8 @@ bool GameController::handlePlayfieldCardClick(int cardId)
 
 bool GameController::drawCardFromReserve()
 {
-    CCLOG("=== Drawing from Reserve ===");
-
-    if (!_gameModel) {
-        CCLOG("ERROR: GameModel is null!");
-        return false;
-    }
-
-    // 检查是否有备用牌
-    if (!_gameModel->hasReserveCards()) {
-        CCLOG("No reserve cards available");
-        return false;
-    }
-
-    CardModel* currentBottomCard = _gameModel->getBottomCard();
-
-    // 调用 GameModel 的 drawFromReserve 方法
-    CardModel* newCard = _gameModel->drawFromReserve();
-
-    if (!newCard) {
-        CCLOG("ERROR: Failed to draw card from reserve");
-        return false;
-    }
-
-    CCLOG("Drew new card from reserve: ID=%d, Face=%d, Suit=%d",
-        newCard->getCardId(), newCard->getFace(), newCard->getSuit());
-
-    // 记录回退动作
-    if (currentBottomCard) {
-        recordUndoAction(newCard, newCard->getPosition(), currentBottomCard);
-        currentBottomCard->setPosition(Vec2(-1000, -1000));
-        currentBottomCard->setTopCard(false);
-    }
-    else {
-        recordUndoAction(newCard, newCard->getPosition());
-    }
-
-    // 设置新牌为底牌
-    newCard->setPosition(Vec2(540, 290));
-    newCard->setTopCard(true);
-    newCard->setInPlayfield(false);
-    _gameModel->setBottomCard(newCard);
-
-    CCLOG("New bottom card set: ID=%d, Remaining reserve: %zu",
-        newCard->getCardId(), _gameModel->getAllReserveCards().size());
-
-    // 播放动画
-    if (_gameView) {
-        _gameView->playCardMatchAnimation(newCard->getCardId(), Vec2(540, 290));
-    }
-
-    // 刷新视图
-    refreshGameView();
-
-    CCLOG("Successfully drew card from reserve and updated game state");
-    return true;
+    CCLOG("Legacy drawCardFromReserve called, using new logic");
+    return drawFromReserveToHand();
 }
 
 void GameController::refreshGameView()

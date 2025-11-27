@@ -37,7 +37,12 @@ private:
     void createPlayfieldArea();
     void createStackArea();
     void createBottomCardArea();
+    void createReserveArea();
 
+    void createReserveDeckDisplay(const std::vector<CardModel*>& reserveCards);
+
+    std::string getFaceText(CardFaceType face);
+    std::string getSuitText(CardSuitType suit);
 private:
     std::unordered_map<int, CardView*> _cardViews;
     std::function<void(int)> _cardClickCallback;

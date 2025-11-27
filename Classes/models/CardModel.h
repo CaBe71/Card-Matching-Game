@@ -6,10 +6,6 @@
 
 USING_NS_CC;
 
-/**
- * @class CardModel
- * @brief 卡牌数据模型，存储卡牌的基本信息和状态
- */
 class CardModel
 {
 public:
@@ -33,12 +29,12 @@ public:
     void setInPlayfield(bool inPlayfield) { _isInPlayfield = inPlayfield; }
 
 private:
-    int _cardId;                    // 卡牌唯一ID
-    CardFaceType _face;             // 牌面值
-    CardSuitType _suit;             // 花色
-    Vec2 _position;                 // 位置信息
-    bool _isTopCard;                // 是否为顶部牌
-    bool _isInPlayfield;            // 是否在桌面区域
+    int _cardId;
+    CardFaceType _face;
+    CardSuitType _suit;
+    Vec2 _position;
+    bool _isTopCard;
+    bool _isInPlayfield;
 };
 
-#endif 
+#endif
