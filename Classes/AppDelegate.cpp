@@ -17,8 +17,7 @@ AppDelegate::~AppDelegate()
 // 初始化OpenGL上下文属性
 void AppDelegate::initGLContextAttrs()
 {
-    // 设置OpenGL上下文属性
-    // 红色、绿色、蓝色、alpha位深度
+    
     GLContextAttrs glContextAttrs = { 8, 8, 8, 8, 24, 8, 0 };
     GLView::setGLContextAttrs(glContextAttrs);
 }
@@ -40,7 +39,7 @@ bool AppDelegate::applicationDidFinishLaunching()
     director->setAnimationInterval(1.0f / 60);
 
     // 开启调试信息
-    director->setDisplayStats(true);
+    director->setDisplayStats(false);
 
     // 添加资源搜索路径
     auto fileUtils = FileUtils::getInstance();

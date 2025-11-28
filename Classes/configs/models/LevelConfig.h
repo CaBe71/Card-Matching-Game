@@ -6,10 +6,8 @@
 
 USING_NS_CC;
 
-/**
- * @struct CardConfig
- * @brief 单张卡牌的配置信息
- */
+// 单张卡牌的配置信息
+
 struct CardConfig
 {
     CardFaceType cardFace;
@@ -17,10 +15,8 @@ struct CardConfig
     Vec2 position;
 };
 
-/**
- * @class LevelConfig
- * @brief 关卡配置数据
- */
+// 关卡配置数据
+
 class LevelConfig
 {
 public:
@@ -32,9 +28,7 @@ public:
 
     std::vector<CardConfig> playfieldCards;  // 桌面牌配置
     std::vector<CardConfig> stackCards;      // 手牌区配置
-    std::vector<CardConfig> reserveCards;    // 备用牌配置
-
-    static LevelConfig* createFromJson(const std::string& jsonStr);
+    std::vector<CardConfig> reserveCards;    // 备用牌配置   
 };
 
-#endif // LEVEL_CONFIG_H
+#endif 

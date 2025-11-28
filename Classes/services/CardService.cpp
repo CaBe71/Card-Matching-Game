@@ -19,13 +19,12 @@ bool CardService::canMatch(const CardModel* card1, const CardModel* card2)
     int face1 = card1->getFace();
     int face2 = card2->getFace();
 
-    // ?? 修复：正确的面值到字符串映射
     const char* faceNames[] = { "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K" };
 
     int diff = abs(face1 - face2);
     bool canMatch = (diff == 1);
 
-    // ?? 修复：添加A和K的特殊匹配
+    // 添加A和K的特殊匹配
     if (!canMatch) {
         // 检查是否是 A 和 K 的情况
         if ((face1 == 0 && face2 == 12) || (face1 == 12 && face2 == 0)) {
@@ -42,7 +41,7 @@ bool CardService::canMatch(const CardModel* card1, const CardModel* card2)
     return canMatch;
 }
 
-// ?? 新增：面值转字符串的辅助方法
+// 面值转字符串的辅助方法
 std::string CardService::getFaceString(CardFaceType face)
 {
     switch (face) {
@@ -78,7 +77,6 @@ int CardService::generateCardId()
 
 CardModel* CardService::generateRandomCard()
 {
-    // 使用更好的随机数生成方式
     static std::random_device rd;
     static std::mt19937 gen(rd());
     static std::uniform_int_distribution<> faceDist(0, 12); // 0-12 对应 A-K

@@ -23,7 +23,7 @@ GameModel* GameModelGenerator::generateFromLevelConfig(const LevelConfig* levelC
     }
     gameModel->setPlayFieldCards(playFieldCards);
 
-    // ?? 修复：生成备用牌堆（包含所有备用牌）
+    // 生成备用牌堆
     std::vector<CardModel*> reserveCards;
     const std::vector<CardConfig>& reserveConfigs = levelConfig->reserveCards;
     for (const auto& cardConfig : reserveConfigs) {
@@ -35,7 +35,7 @@ GameModel* GameModelGenerator::generateFromLevelConfig(const LevelConfig* levelC
     }
     gameModel->setReserveCards(reserveCards);
 
-    // ?? 修复：生成手牌区卡牌
+    // 生成手牌区卡牌
     std::vector<CardModel*> stackCards;
     const std::vector<CardConfig>& stackConfigs = levelConfig->stackCards;
     for (const auto& cardConfig : stackConfigs) {
@@ -47,7 +47,7 @@ GameModel* GameModelGenerator::generateFromLevelConfig(const LevelConfig* levelC
     }
     gameModel->setStackCards(stackCards);
 
-    // ?? 修复：设置初始底牌（从备用牌堆抽取第一张）
+    // 设置初始底牌（从备用牌堆抽取第一张）
     if (!reserveCards.empty()) {
         // 从备用牌堆抽取底牌
         std::vector<CardModel*> newReserveCards = reserveCards;
@@ -66,7 +66,7 @@ GameModel* GameModelGenerator::generateFromLevelConfig(const LevelConfig* levelC
     }
     else {
         CCLOG("? WARNING: No reserve cards for initial bottom card");
-        // ?? 如果没有备用牌，从手牌区抽取
+        // 如果没有备用牌，从手牌区抽取
         if (!stackCards.empty()) {
             std::vector<CardModel*> newStackCards = stackCards;
             CardModel* initialBottomCard = newStackCards.back();

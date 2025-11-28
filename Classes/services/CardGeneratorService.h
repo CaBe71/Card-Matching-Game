@@ -7,19 +7,10 @@
 class CardGeneratorService
 {
 public:
-    /**
-     * @brief 生成随机卡牌
-     * @param count 生成数量
-     * @return 卡牌列表
-     */
+    // 生成随机卡牌
     static std::vector<CardModel*> generateRandomCards(int count);
 
-    /**
-     * @brief 生成特定位置的随机卡牌
-     * @param count 生成数量
-     * @param position 位置
-     * @return 卡牌列表
-     */
+    // 生成特定位置的随机卡牌
     static std::vector<CardModel*> generateRandomCardsAtPosition(int count, const cocos2d::Vec2& position);
 
 private:

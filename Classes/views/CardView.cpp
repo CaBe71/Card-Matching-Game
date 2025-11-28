@@ -24,7 +24,7 @@ bool CardView::init()
     return true;
 }
 
-// CardView.cpp - 确保底牌的触摸检测正常工作
+// 确保底牌的触摸检测正常工作
 void CardView::setupTouchListener()
 {
     // 移除旧的监听器
@@ -42,22 +42,22 @@ void CardView::setupTouchListener()
 
         if (hit) {
             CCLOG("? TOUCH BEGAN on Card %d at (%.1f, %.1f)", _cardId, localPos.x, localPos.y);
-            this->setScale(0.95f); // ?? 添加点击反馈
+            this->setScale(0.95f); // 添加点击反馈
         }
 
         return hit;
         };
 
     listener->onTouchEnded = [this](Touch* touch, Event* event) {
-        this->setScale(1.0f); // ?? 恢复缩放
+        this->setScale(1.0f); // 恢复缩放
 
-        CCLOG("?? TOUCH ENDED on Card %d - Calling callback", _cardId);
+        CCLOG("TOUCH ENDED on Card %d - Calling callback", _cardId);
 
         if (_clickCallback) {
             _clickCallback(_cardId);
         }
         else {
-            CCLOG("? ERROR: No click callback for card %d", _cardId);
+            CCLOG("ERROR: No click callback for card %d", _cardId);
         }
         };
 
@@ -118,7 +118,7 @@ void CardView::updateWithModel(const CardModel* cardModel)
         _cardSprite->setContentSize(Size(100, 150));
     }
 
-    // 重要：设置卡牌本身的内容大小，这是触摸检测的关键
+    // 设置卡牌本身的内容大小，这是触摸检测的关键
     this->setContentSize(Size(100, 150));
     this->setAnchorPoint(Vec2(0.5f, 0.5f));
 
@@ -131,7 +131,7 @@ void CardView::updateWithModel(const CardModel* cardModel)
     // 根据花色确定颜色
     std::string faceColor = (suit == CST_HEARTS || suit == CST_DIAMONDS) ? "red" : "black";
 
-    // 1. 创建中间大数字精灵 - 调整位置避免重叠
+    // 创建中间大数字精灵
     std::string bigFaceFilename;
     switch (face) {
     case CFT_ACE:   bigFaceFilename = "number/big_" + faceColor + "_A.png"; break;
@@ -158,15 +158,9 @@ void CardView::updateWithModel(const CardModel* cardModel)
         _cardSprite->addChild(_faceSprite);
         CCLOG("Big face sprite created successfully");
     }
-    else {
-        // 如果数字图片不存在，使用文本标签
-        CCLOG("Failed to load big face: %s, using text fallback", bigFaceFilename.c_str());
-        auto label = createFallbackLabel(getFaceText(face), 36, faceColor);
-        label->setPosition(Vec2(50, 60));  // 同样调整位置
-        _cardSprite->addChild(label);
-    }
+    
 
-    // 2. 创建左上角小数字 - 调整位置到更角落
+    // 创建左上角小数字
     std::string smallFaceFilename;
     switch (face) {
     case CFT_ACE:   smallFaceFilename = "number/small_" + faceColor + "_A.png"; break;
@@ -189,19 +183,13 @@ void CardView::updateWithModel(const CardModel* cardModel)
     auto smallFaceSprite = Sprite::create(smallFaceFilename);
     if (smallFaceSprite) {
         // 设置小数字在左上角更角落的位置
-        smallFaceSprite->setPosition(Vec2(20, 130));  // 从(25,125)调整到(20,130)，更靠角落
+        smallFaceSprite->setPosition(Vec2(10, 130));  
         _cardSprite->addChild(smallFaceSprite);
         CCLOG("Small face sprite created successfully");
     }
-    else {
-        // 如果数字图片不存在，使用文本标签
-        CCLOG("Failed to load small face: %s, using text fallback", smallFaceFilename.c_str());
-        auto smallLabel = createFallbackLabel(getFaceText(face), 16, faceColor);  // 字体稍小
-        smallLabel->setPosition(Vec2(20, 130));  // 同样调整位置
-        _cardSprite->addChild(smallLabel);
-    }
+    
 
-    // 3. 创建花色精灵 - 调整位置到右上角
+    // 创建花色精灵
     std::string suitFilename;
     switch (suit) {
     case CST_CLUBS:    suitFilename = "suits/club.png"; break;
@@ -216,15 +204,9 @@ void CardView::updateWithModel(const CardModel* cardModel)
         _suitSprite = Sprite::create(suitFilename);
         if (_suitSprite) {
             // 设置花色在右上角更角落的位置
-            _suitSprite->setPosition(Vec2(80, 130));  // 从(75,125)调整到(80,130)，更靠角落
+            _suitSprite->setPosition(Vec2(90, 130));  // 从(75,125)调整到(80,130)，更靠角落
             _cardSprite->addChild(_suitSprite);
             CCLOG("Suit sprite created successfully");
-        }
-        else {
-            CCLOG("Failed to load suit: %s, using text fallback", suitFilename.c_str());
-            auto suitLabel = createFallbackLabel(getSuitText(suit), 16, faceColor);  // 字体稍小
-            suitLabel->setPosition(Vec2(80, 130));  // 同样调整位置
-            _cardSprite->addChild(suitLabel);
         }
     }
 
@@ -235,48 +217,6 @@ void CardView::updateWithModel(const CardModel* cardModel)
         _cardId, getContentSize().width, getContentSize().height);
 }
 
-std::string CardView::getFaceText(CardFaceType face)
-{
-    switch (face) {
-    case CFT_ACE:   return "A";
-    case CFT_TWO:   return "2";
-    case CFT_THREE: return "3";
-    case CFT_FOUR:  return "4";
-    case CFT_FIVE:  return "5";
-    case CFT_SIX:   return "6";
-    case CFT_SEVEN: return "7";
-    case CFT_EIGHT: return "8";
-    case CFT_NINE:  return "9";
-    case CFT_TEN:   return "10";
-    case CFT_JACK:  return "J";
-    case CFT_QUEEN: return "Q";
-    case CFT_KING:  return "K";
-    default:        return "?";
-    }
-}
-
-std::string CardView::getSuitText(CardSuitType suit)
-{
-    switch (suit) {
-    case CST_CLUBS:    return "?";
-    case CST_DIAMONDS: return "?";
-    case CST_HEARTS:   return "?";
-    case CST_SPADES:   return "?";
-    default:           return "?";
-    }
-}
-
-Label* CardView::createFallbackLabel(const std::string& text, int fontSize, const std::string& color)
-{
-    auto label = Label::createWithSystemFont(text, "Arial", fontSize);
-    if (color == "red") {
-        label->setTextColor(Color4B::RED);
-    }
-    else {
-        label->setTextColor(Color4B::BLACK);
-    }
-    return label;
-}
 
 void CardView::playMoveAnimation(const Vec2& targetPosition, float duration,
     std::function<void()> callback)

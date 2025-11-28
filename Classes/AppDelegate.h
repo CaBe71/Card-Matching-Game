@@ -3,9 +3,7 @@
 
 #include "cocos2d.h"
 
-/**
- * @brief 应用程序委托类，必须继承自cocos2d::Application
- */
+
 class AppDelegate : private cocos2d::Application  // 正确继承
 {
 public:

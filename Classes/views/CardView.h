@@ -13,10 +13,8 @@ public:
 
     virtual bool init() override;
 
-    /**
-     * @brief 更新视图显示基于卡牌模型数据
-     * @param cardModel 卡牌数据模型
-     */
+    // 更新视图显示基于卡牌模型数据
+    
     void updateWithModel(const CardModel* cardModel);
 
     /**
@@ -45,16 +43,14 @@ public:
         _clickCallback = callback;
     }
 
-    // Getters
+    // GetID
     int getCardId() const { return _cardId; }
 
 private:
     // 辅助方法
     void setupTouchListener();
     void onCardTouched();
-    std::string getFaceText(CardFaceType face);
-    std::string getSuitText(CardSuitType suit);
-    Label* createFallbackLabel(const std::string& text, int fontSize, const std::string& color);
+    
 
 private:
     int _cardId;                                // 卡牌ID

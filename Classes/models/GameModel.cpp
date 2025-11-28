@@ -15,6 +15,8 @@ GameModel::~GameModel()
     }
 }
 
+// 加入牌堆
+
 void GameModel::addPlayfieldCard(CardModel* card)
 {
     card->setInPlayfield(true);
@@ -82,7 +84,7 @@ bool GameModel::removeReserveCard(int cardId)
     return removeCardFromVector(_reserveCards, cardId);
 }
 
-// GameModel.cpp - 确保 drawFromReserve 方法存在
+// 从备用牌中抽一张
 CardModel* GameModel::drawFromReserve()
 {
     if (_reserveCards.empty()) {
@@ -101,7 +103,7 @@ CardModel* GameModel::drawFromReserve()
 }
 
 
-// 确保 addReserveCard 方法存在
+// 往备用牌堆加牌
 void GameModel::addReserveCard(CardModel* card)
 {
     card->setInPlayfield(false);

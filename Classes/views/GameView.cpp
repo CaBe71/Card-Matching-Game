@@ -1,4 +1,3 @@
-// GameView.cpp - 简化版本
 #include "GameView.h"
 
 USING_NS_CC;
@@ -60,7 +59,7 @@ void GameView::createBottomCardArea()
 {
     _bottomCardLayer = Layer::create();
     _bottomCardLayer->setContentSize(Size(200, 200));
-    _bottomCardLayer->setPosition(Vec2(440, 50));
+    _bottomCardLayer->setPosition(Vec2(440, 250));
     this->addChild(_bottomCardLayer);
 
     // 底牌区域背景
@@ -134,24 +133,24 @@ void GameView::initializeWithCards(const std::vector<CardModel*>& playfieldCards
         }
     }
 
-    // ?? 创建底牌（确保位置正确）
+    // 创建底牌（确保位置正确）
     if (bottomCard) {
         _bottomCardView = CardView::create();
         if (_bottomCardView) {
-            // ?? 重要：设置底牌在底牌层内的相对位置
-            bottomCard->setPosition(Vec2(60, 90)); // 在底牌层中心
+            // 重要：设置底牌在底牌层内的相对位置
+            bottomCard->setPosition(Vec2(160, 190)); // 在底牌层中心
             _bottomCardView->updateWithModel(bottomCard);
             _bottomCardView->setClickCallback(_cardClickCallback);
             _bottomCardLayer->addChild(_bottomCardView);
             _cardViews[bottomCard->getCardId()] = _bottomCardView;
 
-            CCLOG("? Created bottom card: ID=%d, Face=%d at (%.1f, %.1f)",
+            CCLOG("Created bottom card: ID=%d, Face=%d at (%.1f, %.1f)",
                 bottomCard->getCardId(), bottomCard->getFace(),
                 bottomCard->getPosition().x, bottomCard->getPosition().y);
         }
     }
     else {
-        CCLOG("? No bottom card to create");
+        CCLOG("No bottom card to create");
     }
 
     // 创建备牌堆显示
@@ -164,23 +163,24 @@ void GameView::createReserveArea()
 {
     auto reserveArea = Layer::create();
     reserveArea->setContentSize(Size(120, 180));
-    reserveArea->setPosition(Vec2(800, 250));
+    reserveArea->setPosition(Vec2(800, 250));  // 备牌区在手牌区内的位置
     _stackLayer->addChild(reserveArea);
 
-    // 备牌区背景（可点击）
+    // 备牌区背景
     auto reserveBg = LayerColor::create(Color4B(60, 60, 60, 255), 120, 180);
     reserveArea->addChild(reserveBg);
+
 
     // 添加触摸监听器让备牌堆可点击
     auto listener = EventListenerTouchOneByOne::create();
     listener->setSwallowTouches(true);
     listener->onTouchBegan = [this](Touch* touch, Event* event) -> bool {
         Vec2 touchLocation = touch->getLocation();
-        auto reserveArea = _stackLayer->getChildByTag(100); // 假设设置tag
+        auto reserveArea = _stackLayer->getChildByTag(100);
 
         if (reserveArea && reserveArea->getBoundingBox().containsPoint(touchLocation)) {
             CCLOG("Reserve deck clicked");
-            // ?? 发送特殊卡牌ID表示备牌堆点击
+            // 发送特殊卡牌ID表示备牌堆点击
             if (_cardClickCallback) {
                 _cardClickCallback(-999); // 使用特殊ID表示备牌堆
             }
@@ -189,34 +189,46 @@ void GameView::createReserveArea()
         return false;
         };
     _eventDispatcher->addEventListenerWithSceneGraphPriority(listener, reserveArea);
+
+    CCLOG("Reserve area created at position (800, 250)");
 }
 
-// ?? 新增：创建备牌堆显示
 void GameView::createReserveDeckDisplay(const std::vector<CardModel*>& reserveCards)
 {
     auto reserveArea = _stackLayer->getChildByTag(100);
-    if (!reserveArea) return;
+    if (!reserveArea) {
+        CCLOG("? Reserve area not found! Creating new one...");
+        createReserveArea();  // 如果找不到就重新创建
+        reserveArea = _stackLayer->getChildByTag(100);
+        if (!reserveArea) return;
+    }
 
-    // 清除旧内容
-    reserveArea->removeAllChildren();
+    // 只移除除了背景和标签之外的内容
+    auto children = reserveArea->getChildren();
+    for (auto it = children.begin(); it != children.end(); ) {
+        auto child = *it;
+        if (child->getTag() != 0) { // 保留有tag的子节点（背景和标签）
+            ++it;
+        }
+        else {
+            it = children.erase(it);
+            reserveArea->removeChild(child);
+        }
+    }
 
-    // 备牌堆背景
-    auto reserveBg = LayerColor::create(Color4B(80, 80, 80, 200), 100, 150);
-    reserveBg->setPosition(Vec2(10, 15));
-    reserveArea->addChild(reserveBg);
 
     // 显示备牌数量
-    std::string reserveText = "RESERVE\n" + std::to_string(reserveCards.size());
+    std::string reserveText = "CARDS\n" + std::to_string(reserveCards.size());
     auto reserveLabel = Label::createWithSystemFont(reserveText, "Arial", 16);
-    reserveLabel->setPosition(Vec2(50, 75));
+    reserveLabel->setPosition(Vec2(60, 90));  // 调整到中心位置
     reserveLabel->setTextColor(Color4B::WHITE);
     reserveLabel->setAlignment(TextHAlignment::CENTER);
-    reserveBg->addChild(reserveLabel);
+    reserveArea->addChild(reserveLabel);
 
-    // ?? 如果备牌堆有卡牌，显示最上面一张的预览
+    // 如果备牌堆有卡牌，显示最上面一张的预览
     if (!reserveCards.empty()) {
         auto topCardPreview = LayerColor::create(Color4B(255, 255, 255, 100), 80, 120);
-        topCardPreview->setPosition(Vec2(20, 90));
+        topCardPreview->setPosition(Vec2(60, 30));  // 调整到下方位置
         reserveArea->addChild(topCardPreview);
 
         // 显示最上面一张卡牌的信息
@@ -227,6 +239,9 @@ void GameView::createReserveDeckDisplay(const std::vector<CardModel*>& reserveCa
         previewLabel->setTextColor(Color4B::BLACK);
         previewLabel->setAlignment(TextHAlignment::CENTER);
         topCardPreview->addChild(previewLabel);
+
+        CCLOG("Reserve deck display updated: %zu cards, top card: %s",
+            reserveCards.size(), previewText.c_str());
     }
 }
 
