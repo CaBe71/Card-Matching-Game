@@ -1,18 +1,38 @@
+#pragma once
 #ifndef GAME_MODEL_GENERATOR_H
 #define GAME_MODEL_GENERATOR_H
 
 #include "../models/GameModel.h"
 #include "../configs/models/LevelConfig.h"
+#include <algorithm>
+#include <cstdlib>
 
+/**
+ * 娓告垙妯″瀷鐢熸垚鏈嶅姟
+ */
 class GameModelGenerator
 {
 public:
-    // 从关卡配置生成游戏模型
-    static GameModel* generateFromLevelConfig(const LevelConfig* levelConfig);
+    GameModelGenerator();
+    ~GameModelGenerator() = default;
 
+    GameModel* generateGameModel(LevelConfig* levelConfig);
+    GameModel* generateRandomGameModel();
 
 private:
-    static CardModel* createCardModel(const CardConfig& cardConfig, int cardId);
+    CardModel* createCardModel(const LevelConfig::CardConfig& cardConfig, int cardId);
+    CardModel* createRandomCardModel(int cardId, const cocos2d::Vec2& position);
+
+    template<typename T>
+    void shuffleVector(std::vector<T>& vec);
 };
 
-#endif // GAME_MODEL_GENERATOR_H
+template<typename T>
+void GameModelGenerator::shuffleVector(std::vector<T>& vec) {
+    for (size_t i = vec.size() - 1; i > 0; i--) {
+        size_t j = static_cast<size_t>(rand()) % (i + 1);
+        std::swap(vec[i], vec[j]);
+    }
+}
+
+#endif

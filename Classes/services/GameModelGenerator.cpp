@@ -1,102 +1,110 @@
 #include "GameModelGenerator.h"
-#include "CardService.h"
+#include "../utils/GameUtils.h"
 
 USING_NS_CC;
 
-GameModel* GameModelGenerator::generateFromLevelConfig(const LevelConfig* levelConfig)
-{
-    if (!levelConfig) {
-        return nullptr;
-    }
+GameModelGenerator::GameModelGenerator() {}
 
+GameModel* GameModelGenerator::generateGameModel(LevelConfig* levelConfig)
+{
+    if (!levelConfig) return nullptr;
     GameModel* gameModel = new GameModel();
 
-    // 生成主牌区的卡牌
     std::vector<CardModel*> playFieldCards;
-    const std::vector<CardConfig>& playFieldConfigs = levelConfig->playfieldCards;
-    for (const auto& cardConfig : playFieldConfigs) {
-        int cardId = CardService::generateCardId();
-        CardModel* cardModel = createCardModel(cardConfig, cardId);
-        if (cardModel) {
-            playFieldCards.push_back(cardModel);
-        }
+    for (auto& cfg : levelConfig->getPlayFieldCards()) {
+        int cardId = GameUtils::generateCardId();
+        CardModel* cm = createCardModel(cfg, cardId);
+        if (cm) playFieldCards.push_back(cm);
     }
     gameModel->setPlayFieldCards(playFieldCards);
 
-    // 生成备用牌堆
-    std::vector<CardModel*> reserveCards;
-    const std::vector<CardConfig>& reserveConfigs = levelConfig->reserveCards;
-    for (const auto& cardConfig : reserveConfigs) {
-        int cardId = CardService::generateCardId();
-        CardModel* cardModel = createCardModel(cardConfig, cardId);
-        if (cardModel) {
-            reserveCards.push_back(cardModel);
-        }
-    }
-    gameModel->setReserveCards(reserveCards);
-
-    // 生成手牌区卡牌
     std::vector<CardModel*> stackCards;
-    const std::vector<CardConfig>& stackConfigs = levelConfig->stackCards;
-    for (const auto& cardConfig : stackConfigs) {
-        int cardId = CardService::generateCardId();
-        CardModel* cardModel = createCardModel(cardConfig, cardId);
-        if (cardModel) {
-            stackCards.push_back(cardModel);
-        }
+    for (auto& cfg : levelConfig->getStackCards()) {
+        int cardId = GameUtils::generateCardId();
+        CardModel* cm = createCardModel(cfg, cardId);
+        if (cm) stackCards.push_back(cm);
     }
     gameModel->setStackCards(stackCards);
 
-    // 设置初始底牌（从备用牌堆抽取第一张）
-    if (!reserveCards.empty()) {
-        // 从备用牌堆抽取底牌
-        std::vector<CardModel*> newReserveCards = reserveCards;
-        CardModel* initialBottomCard = newReserveCards.back();
-        newReserveCards.pop_back(); // 从备用牌堆移除
-
-        // 设置底牌和更新备用牌堆
-        initialBottomCard->setPosition(Vec2(540, 290));
-        initialBottomCard->setTopCard(true);
-        initialBottomCard->setInPlayfield(false);
-        gameModel->setBottomCard(initialBottomCard);
-        gameModel->setReserveCards(newReserveCards);
-
-        CCLOG("? Initial bottom card set: ID=%d, Face=%d",
-            initialBottomCard->getCardId(), initialBottomCard->getFace());
+    if (!stackCards.empty()) {
+        auto nsc = stackCards;
+        CardModel* ib = nsc.back(); nsc.pop_back();
+        gameModel->setBottomCard(ib);
+        gameModel->setStackCards(nsc);
     }
-    else {
-        CCLOG("? WARNING: No reserve cards for initial bottom card");
-        // 如果没有备用牌，从手牌区抽取
-        if (!stackCards.empty()) {
-            std::vector<CardModel*> newStackCards = stackCards;
-            CardModel* initialBottomCard = newStackCards.back();
-            newStackCards.pop_back();
-
-            initialBottomCard->setPosition(Vec2(540, 290));
-            initialBottomCard->setTopCard(true);
-            initialBottomCard->setInPlayfield(false);
-            gameModel->setBottomCard(initialBottomCard);
-            gameModel->setStackCards(newStackCards);
-
-            CCLOG("? Initial bottom card from stack: ID=%d, Face=%d",
-                initialBottomCard->getCardId(), initialBottomCard->getFace());
-        }
-    }
-
-    CCLOG("Game model generated: %zu playfield, %zu stack, %zu reserve",
-        playFieldCards.size(), stackCards.size(), gameModel->getAllReserveCards().size());
-
     return gameModel;
 }
 
-CardModel* GameModelGenerator::createCardModel(const CardConfig& cardConfig, int cardId)
+GameModel* GameModelGenerator::generateRandomGameModel()
 {
-    CardModel* cardModel = new CardModel();
-    cardModel->setCardId(cardId);
-    cardModel->setFace(cardConfig.cardFace);
-    cardModel->setSuit(cardConfig.cardSuit);
-    cardModel->setPosition(cardConfig.position);
-    cardModel->setInPlayfield(true);
+    GameModel* gameModel = new GameModel();
+    const int TOTAL_CARDS = 56;
+    const int PLAYFIELD_COUNT = 6;
 
-    return cardModel;
+    // 1. 鐢熸垚56寮犻殢鏈虹墝
+    std::vector<CardModel*> allCards;
+    for (int i = 0; i < TOTAL_CARDS; i++) {
+        CardSuitType suit = static_cast<CardSuitType>(GameUtils::getRandomInt(0, 3));
+        CardFaceType face = static_cast<CardFaceType>(GameUtils::getRandomInt(0, 12));
+        int cardId = GameUtils::generateCardId();
+        CardModel* card = new CardModel();
+        card->setCardId(cardId);
+        card->setSuit(suit);
+        card->setFace(face);
+        card->setPosition(Vec2::ZERO);
+        card->setFlipped(false);
+        allCards.push_back(card);
+    }
+
+    // 2. 娲楃墝
+    shuffleVector(allCards);
+
+    // 3. 妗岄潰鐗岋細3x2 灞呬腑绱у噾
+    float colPositions[2] = { 380.0f, 700.0f };
+    float rowPositions[3] = { 1050.0f, 720.0f, 390.0f };
+
+    std::vector<CardModel*> playFieldCards;
+    for (int i = 0; i < PLAYFIELD_COUNT && !allCards.empty(); i++) {
+        CardModel* card = allCards.back(); allCards.pop_back();
+        int col = i % 2;
+        int row = i / 2;
+        card->setPosition(Vec2(colPositions[col], rowPositions[row]));
+        card->setFlipped(true);
+        playFieldCards.push_back(card);
+    }
+    gameModel->setPlayFieldCards(playFieldCards);
+
+    // 4. 搴曠墝
+    if (!allCards.empty()) {
+        CardModel* btm = allCards.back(); allCards.pop_back();
+        btm->setPosition(Vec2::ZERO);
+        btm->setFlipped(true);
+        gameModel->setBottomCard(btm);
+    }
+
+    // 5. 鐗屽爢
+    gameModel->setStackCards(allCards);
+    return gameModel;
+}
+
+CardModel* GameModelGenerator::createCardModel(const LevelConfig::CardConfig& cfg, int cardId)
+{
+    CardModel* cm = new CardModel();
+    cm->setCardId(cardId);
+    cm->setFace(cfg.face);
+    cm->setSuit(cfg.suit);
+    cm->setPosition(cfg.position);
+    cm->setFlipped(true);
+    return cm;
+}
+
+CardModel* GameModelGenerator::createRandomCardModel(int cardId, const cocos2d::Vec2& pos)
+{
+    CardModel* cm = new CardModel();
+    cm->setCardId(cardId);
+    cm->setSuit(static_cast<CardSuitType>(GameUtils::getRandomInt(0, 3)));
+    cm->setFace(static_cast<CardFaceType>(GameUtils::getRandomInt(0, 12)));
+    cm->setPosition(pos);
+    cm->setFlipped(true);
+    return cm;
 }

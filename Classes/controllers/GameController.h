@@ -5,69 +5,47 @@
 #include "../models/GameModel.h"
 #include "../views/GameView.h"
 #include "../managers/UndoManager.h"
-#include "../services/CardService.h"
-#include "../services/GameModelGenerator.h"
-#include "../configs/loaders/LevelConfigLoader.h"
 
-USING_NS_CC;
+class LevelConfigLoader;
+class GameModelGenerator;
 
-// 游戏主控制器，协调模型和视图，处理游戏逻辑
-
-class GameController : public Node
+class GameController
 {
 public:
-    
-    static GameController* create();
+    GameController();
+    ~GameController();
 
-    
-    virtual bool init() override;
-
-    
-    void startGame(int levelId = 1);
-
-    // 处理卡牌点击事件
+    void startGame(int levelId);
+    void restartGame();
     bool handleCardClick(int cardId);
-
-    // 处理回退按钮点击
+    void handleDrawCard();
     void handleUndo();
 
-    // Getters
+    cocos2d::Node* getGameView() const { return _gameView; }
     GameModel* getGameModel() const { return _gameModel; }
-    GameView* getGameView() const { return _gameView; }
+
+    void setScoreCallback(const std::function<void(int)>& cb) { _scoreCallback = cb; }
+    void setComboCallback(const std::function<void(int)>& cb) { _comboCallback = cb; }
+    void setGameEndCallback(const std::function<void(bool)>& cb) { _gameEndCallback = cb; }
+    void setStackCountCallback(const std::function<void(int)>& cb) { _stackCountCallback = cb; }
+
+    // 妫�鏌ユ槸鍚︽湁鍙尮閰嶇墝
+    bool hasAnyMatch() const;
 
 private:
+    bool checkCardsMatch(const CardModel* c1, const CardModel* c2) const;
+    void checkGameEnd();
 
-    // 处理桌面卡牌点击
-    bool handlePlayfieldCardClick(CardModel* playfieldCard);
-    
-    // 处理底牌点击（从备用牌堆抽牌
-    bool handleBottomCardClick(CardModel* clickedCard);
+    GameModel* _gameModel = nullptr;
+    GameView* _gameView = nullptr;
+    UndoManager* _undoManager = nullptr;
+    LevelConfigLoader* _configLoader = nullptr;
+    GameModelGenerator* _modelGenerator = nullptr;
 
-
-    /**
-     * @brief 记录卡牌移动的回退动作
-     * @param movedCard 移动的卡牌
-     * @param originalPosition 原始位置
-     * @param replacedCard 被替换的卡牌（可选）
-     */
-    void GameController::recordUndoAction(CardModel* movedCard, const Vec2& originalPosition, CardModel* replacedCard);
-    void GameController::undoCardMatch(const UndoAction& action);
-    void GameController::undoDrawCard(const UndoAction& action);
-
-    // 刷新游戏视图
-    void refreshGameView();
-
-    // 从备用牌堆抽取新牌
-    bool drawFromReserveToHand();
-
-    CardModel* findCardInAllContainers(int cardId);
-    void removeCardFromAllContainers(int cardId);
-
-
-private:
-    GameModel* _gameModel;          // 游戏数据模型
-    GameView* _gameView;            // 游戏视图
-    UndoManager* _undoManager;      // 回退管理器
+    std::function<void(int)> _scoreCallback;
+    std::function<void(int)> _comboCallback;
+    std::function<void(bool)> _gameEndCallback;
+    std::function<void(int)> _stackCountCallback;
 };
 
-#endif // GAME_CONTROLLER_H
+#endif

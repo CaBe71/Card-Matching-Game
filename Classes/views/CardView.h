@@ -1,64 +1,72 @@
+#pragma once
 #ifndef CARD_VIEW_H
 #define CARD_VIEW_H
 
 #include "cocos2d.h"
 #include "../models/CardModel.h"
 
-USING_NS_CC;
+// 前向声明，避免循环依赖
+class CardController;
 
-class CardView : public Sprite
+/**
+ * 卡牌视图
+ * 负责单张卡牌的显示和触摸事件处理
+ */
+class CardView : public cocos2d::Node
 {
 public:
-    CREATE_FUNC(CardView);
-
+    // 使用标准的cocos2d-x创建模式
+    static CardView* create();
     virtual bool init() override;
 
-    // 更新视图显示基于卡牌模型数据
-    
-    void updateWithModel(const CardModel* cardModel);
+    /**
+     * 更新视图显示
+     * @param cardModel 卡牌数据模型
+     */
+    void updateView(const CardModel* cardModel);
 
     /**
-     * @brief 播放移动动画
+     * 设置卡牌点击回调
+     * @param callback 回调函数，参数为卡牌ID
+     */
+    void setClickCallback(const std::function<void(int)>& callback) { _clickCallback = callback; }
+
+    /**
+     * 播放移动动画
      * @param targetPosition 目标位置
      * @param duration 动画时长
-     * @param callback 动画完成回调
+     * @param callback 动画完成后的回调
      */
-    void playMoveAnimation(const Vec2& targetPosition, float duration = 0.5f,
-        std::function<void()> callback = nullptr);
+    void playMoveAnimation(const cocos2d::Vec2& targetPosition, float duration, const std::function<void()>& callback = nullptr);
 
     /**
-     * @brief 播放回退动画
-     * @param originalPosition 原始位置
-     * @param duration 动画时长
-     * @param callback 动画完成回调
+     * 播放匹配消除动画
+     * @param callback 动画完成后的回调
      */
-    void playReverseAnimation(const Vec2& originalPosition, float duration = 0.5f,
-        std::function<void()> callback = nullptr);
+    void playMatchAnimation(const std::function<void()>& callback = nullptr);
 
     /**
-     * @brief 设置点击回调
-     * @param callback 点击回调函数
+     * 设置卡牌是否可点击
+     * @param enabled 是否可点击
      */
-    void setClickCallback(std::function<void(int)> callback) {
-        _clickCallback = callback;
-    }
+    void setTouchEnabled(bool enabled);
 
-    // GetID
-    int getCardId() const { return _cardId; }
-
-private:
-    // 辅助方法
-    void setupTouchListener();
-    void onCardTouched();
-    
+    /**
+     * 设置卡牌是否翻开
+     * @param flipped 是否翻开
+     */
+    void setFlipped(bool flipped) { _flipped = flipped; }
 
 private:
-    int _cardId;                                // 卡牌ID
-    std::function<void(int)> _clickCallback;    // 点击回调
-    Sprite* _cardSprite;                        // 卡牌背景精灵
-    Sprite* _faceSprite;                        // 数字精灵
-    Sprite* _suitSprite;                        // 花色精灵
-    bool _flipped;                              // 是否翻开
+    void setupTouchHandling();
+    void onTouched();
+
+    cocos2d::Sprite* _cardSprite; // 卡牌精灵
+    cocos2d::Sprite* _faceSprite; // 数字和花色精灵
+    cocos2d::Sprite* _suitSprite; // 花色精灵（如果需要分开显示）
+    std::function<void(int)> _clickCallback; // 点击回调
+    int _cardId; // 卡牌ID
+    bool _flipped; // 是否翻开 
 };
 
 #endif // CARD_VIEW_H

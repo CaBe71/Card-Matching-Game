@@ -1,39 +1,52 @@
 #include "UndoManager.h"
 
 UndoManager::UndoManager()
-    : _maxUndoSteps(50)
 {
 }
 
-void UndoManager::init(int maxSteps)
+UndoManager::~UndoManager()
 {
-    _maxUndoSteps = maxSteps;
-    _undoStack.clear();
+    clear();
 }
 
-void UndoManager::pushAction(const UndoAction& action)
+void UndoManager::init()
 {
-    // 如果栈已满，移除最老的动作
-    if (_undoStack.size() >= _maxUndoSteps) {
-        _undoStack.erase(_undoStack.begin());
+    clear();
+}
+
+void UndoManager::pushUndoRecord(UndoModel* undoModel)
+{
+    if (undoModel) {
+        _undoStack.push_back(undoModel);
+        CCLOG("UndoManager: Pushed undo record, stack size: %d", _undoStack.size());
     }
-
-    _undoStack.push_back(action);
 }
 
-UndoAction UndoManager::undoLastAction()
+UndoModel* UndoManager::popUndoRecord()
 {
     if (_undoStack.empty()) {
-        return UndoAction(); // 返回空动作
+        CCLOG("UndoManager: Stack is empty");
+        return nullptr;
     }
 
-    UndoAction lastAction = _undoStack.back();
+    UndoModel* undoModel = _undoStack.back();
     _undoStack.pop_back();
+    CCLOG("UndoManager: Popped undo record, stack size: %d", _undoStack.size());
+    return undoModel;
+}
 
-    return lastAction;
+bool UndoManager::canUndo() const
+{
+    bool canUndo = !_undoStack.empty();
+    CCLOG("UndoManager: canUndo=%d, stack size=%d", canUndo, _undoStack.size());
+    return canUndo;
 }
 
 void UndoManager::clear()
 {
+    for (std::vector<UndoModel*>::iterator it = _undoStack.begin(); it != _undoStack.end(); ++it) {
+        delete* it;
+    }
     _undoStack.clear();
+    CCLOG("UndoManager: Cleared all undo records");
 }

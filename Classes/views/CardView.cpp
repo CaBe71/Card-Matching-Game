@@ -1,85 +1,39 @@
 #include "CardView.h"
-#include <string>
+#include "cocos2d.h"
 
 USING_NS_CC;
 
+CardView* CardView::create()
+{
+    CardView* pRet = new CardView();
+    if (pRet && pRet->init()) {
+        pRet->autorelease();
+        return pRet;
+    }
+    else {
+        delete pRet;
+        pRet = nullptr;
+        return nullptr;
+    }
+}
+
 bool CardView::init()
 {
-    if (!Sprite::init()) {
+    if (!Node::init()) {
         return false;
     }
-
-    // ≥ı ºªØ≥…‘±±‰¡ø
     _cardSprite = nullptr;
     _faceSprite = nullptr;
     _suitSprite = nullptr;
-    _flipped = true;
-    _cardId = -1;
+    _cardId = 0;
+    _flipped = false;
 
-    // …Ë÷√ƒ¨»œƒ⁄»›¥Û–°£¨»∑±£¥•√˛ºÏ≤‚’˝≥£π§◊˜
-    this->setContentSize(Size(100, 150));
-    this->setAnchorPoint(Vec2(0.5f, 0.5f));
-
-    CCLOG("CardView initialized with default size 100x150");
     return true;
 }
 
-// »∑±£µ◊≈∆µƒ¥•√˛ºÏ≤‚’˝≥£π§◊˜
-void CardView::setupTouchListener()
-{
-    // “∆≥˝æ…µƒº‡Ã˝∆˜
-    _eventDispatcher->removeEventListenersForTarget(this);
-
-    auto listener = EventListenerTouchOneByOne::create();
-    listener->setSwallowTouches(true);
-
-    listener->onTouchBegan = [this](Touch* touch, Event* event) -> bool {
-        Vec2 touchLocation = touch->getLocation();
-        Vec2 localPos = this->convertToNodeSpace(touchLocation);
-
-        Rect rect = Rect(0, 0, this->getContentSize().width, this->getContentSize().height);
-        bool hit = rect.containsPoint(localPos);
-
-        if (hit) {
-            CCLOG("? TOUCH BEGAN on Card %d at (%.1f, %.1f)", _cardId, localPos.x, localPos.y);
-            this->setScale(0.95f); // ÃÌº”µ„ª˜∑¥¿°
-        }
-
-        return hit;
-        };
-
-    listener->onTouchEnded = [this](Touch* touch, Event* event) {
-        this->setScale(1.0f); // ª÷∏¥Àı∑≈
-
-        CCLOG("TOUCH ENDED on Card %d - Calling callback", _cardId);
-
-        if (_clickCallback) {
-            _clickCallback(_cardId);
-        }
-        else {
-            CCLOG("ERROR: No click callback for card %d", _cardId);
-        }
-        };
-
-    _eventDispatcher->addEventListenerWithSceneGraphPriority(listener, this);
-}
-
-void CardView::onCardTouched()
-{
-    CCLOG("Card %d touched, calling callback", _cardId);
-
-    if (_clickCallback) {
-        _clickCallback(_cardId);
-    }
-    else {
-        CCLOG("ERROR: Click callback is null for card %d", _cardId);
-    }
-}
-
-void CardView::updateWithModel(const CardModel* cardModel)
+void CardView::updateView(const CardModel* cardModel)
 {
     if (!cardModel) {
-        CCLOG("ERROR: cardModel is null in updateWithModel");
         return;
     }
 
@@ -89,161 +43,213 @@ void CardView::updateWithModel(const CardModel* cardModel)
         (int)cardModel->getSuit());
 
     _cardId = cardModel->getCardId();
-    _flipped = true;
+    _flipped = cardModel->isFlipped();
 
-    // …Ë÷√Œª÷√
     setPosition(cardModel->getPosition());
 
-    // “∆≥˝æ…µƒœ‘ æƒ⁄»›
     removeAllChildren();
 
-    // œ‘ æø®≈∆’˝√Ê -  π”√ card_general.png ◊˜Œ™±≥æ∞
-    _cardSprite = Sprite::create("card_general.png");
-    if (!_cardSprite) {
-        // »Áπ˚ø®≈∆±≥æ∞Õº∆¨≤ª¥Ê‘⁄£¨ π”√±∏”√∑Ω∞∏
-        CCLOG("card_general.png not found, using fallback background");
-        _cardSprite = Sprite::create();
-        auto drawNode = DrawNode::create();
-        Vec2 rectangle[4];
-        rectangle[0] = Vec2(0, 0);
-        rectangle[1] = Vec2(100, 0);
-        rectangle[2] = Vec2(100, 150);
-        rectangle[3] = Vec2(0, 150);
-        drawNode->drawPolygon(rectangle, 4, Color4F(1, 1, 1, 1), 1, Color4F(0, 0, 0, 1));
-        _cardSprite->addChild(drawNode);
-        _cardSprite->setContentSize(Size(100, 150));
-    }
-    else {
-        // »Áπ˚ π”√Õº∆¨£¨»∑±£Õº∆¨¥Û–°’˝»∑
-        _cardSprite->setContentSize(Size(100, 150));
-    }
+    if (_flipped) {
+        _cardSprite = Sprite::create("res/card_general.png");
+        if (!_cardSprite) {
+            _cardSprite = Sprite::create();
+            auto drawNode = DrawNode::create();
+            Vec2 rectangle[4];
+            rectangle[0] = Vec2(0, 0);
+            rectangle[1] = Vec2(100, 0);
+            rectangle[2] = Vec2(100, 150);
+            rectangle[3] = Vec2(0, 150);
+            drawNode->drawPolygon(rectangle, 4, Color4F(1, 1, 1, 1), 1, Color4F(0, 0, 0, 1));
+            _cardSprite->addChild(drawNode);
+            _cardSprite->setContentSize(Size(100, 150));
+        }
+        addChild(_cardSprite);
 
-    // …Ë÷√ø®≈∆±æ…Ìµƒƒ⁄»›¥Û–°£¨’‚ «¥•√˛ºÏ≤‚µƒπÿº¸
-    this->setContentSize(Size(100, 150));
-    this->setAnchorPoint(Vec2(0.5f, 0.5f));
+        int faceValue = cardModel->getFaceValue();
+        CardSuitType suit = cardModel->getSuit();
 
-    addChild(_cardSprite);
+        std::string faceColor = (suit == CardSuitType::HEARTS || suit == CardSuitType::DIAMONDS) ? "red" : "black";
 
-    // ªÒ»°ø®≈∆ ˝æ›
-    CardFaceType face = cardModel->getFace();
-    CardSuitType suit = cardModel->getSuit();
+        // ‰∏≠Èó¥Â§ßÊï∞Â≠ó
+        std::string bigFaceFilename;
+        switch (faceValue) {
+        case 1: bigFaceFilename = "res/number/big_" + faceColor + "_A.png"; break;
+        case 11: bigFaceFilename = "res/number/big_" + faceColor + "_J.png"; break;
+        case 12: bigFaceFilename = "res/number/big_" + faceColor + "_Q.png"; break;
+        case 13: bigFaceFilename = "res/number/big_" + faceColor + "_K.png"; break;
+        default: bigFaceFilename = "res/number/big_" + faceColor + "_" + std::to_string(faceValue) + ".png"; break;
+        }
 
-    // ∏˘æ›ª®…´»∑∂®—’…´
-    std::string faceColor = (suit == CST_HEARTS || suit == CST_DIAMONDS) ? "red" : "black";
+        _faceSprite = Sprite::create(bigFaceFilename);
+        if (_faceSprite) {
+            _faceSprite->setPosition(Vec2(_cardSprite->getContentSize().width / 2, _cardSprite->getContentSize().height / 2));
+            _cardSprite->addChild(_faceSprite);
+        }
+        else {
+            auto label = Label::createWithSystemFont(
+                StringUtils::format("%d", faceValue), "Arial", 36);
+            label->setPosition(Vec2(_cardSprite->getContentSize().width / 2, _cardSprite->getContentSize().height / 2));
+            label->setTextColor((faceColor == "red") ? Color4B::RED : Color4B::BLACK);
+            _cardSprite->addChild(label);
+        }
 
-    // ¥¥Ω®÷–º‰¥Û ˝◊÷æ´¡È
-    std::string bigFaceFilename;
-    switch (face) {
-    case CFT_ACE:   bigFaceFilename = "number/big_" + faceColor + "_A.png"; break;
-    case CFT_TWO:   bigFaceFilename = "number/big_" + faceColor + "_2.png"; break;
-    case CFT_THREE: bigFaceFilename = "number/big_" + faceColor + "_3.png"; break;
-    case CFT_FOUR:  bigFaceFilename = "number/big_" + faceColor + "_4.png"; break;
-    case CFT_FIVE:  bigFaceFilename = "number/big_" + faceColor + "_5.png"; break;
-    case CFT_SIX:   bigFaceFilename = "number/big_" + faceColor + "_6.png"; break;
-    case CFT_SEVEN: bigFaceFilename = "number/big_" + faceColor + "_7.png"; break;
-    case CFT_EIGHT: bigFaceFilename = "number/big_" + faceColor + "_8.png"; break;
-    case CFT_NINE:  bigFaceFilename = "number/big_" + faceColor + "_9.png"; break;
-    case CFT_TEN:   bigFaceFilename = "number/big_" + faceColor + "_10.png"; break;
-    case CFT_JACK:  bigFaceFilename = "number/big_" + faceColor + "_J.png"; break;
-    case CFT_QUEEN: bigFaceFilename = "number/big_" + faceColor + "_Q.png"; break;
-    case CFT_KING:  bigFaceFilename = "number/big_" + faceColor + "_K.png"; break;
-    default:        bigFaceFilename = "number/big_" + faceColor + "_A.png"; break;
-    }
+        // Â∑¶‰∏äËßíÂ∞èÊï∞Â≠ó
+        std::string smallFaceFilename;
+        switch (faceValue) {
+        case 1: smallFaceFilename = "res/number/small_" + faceColor + "_A.png"; break;
+        case 11: smallFaceFilename = "res/number/small_" + faceColor + "_J.png"; break;
+        case 12: smallFaceFilename = "res/number/small_" + faceColor + "_Q.png"; break;
+        case 13: smallFaceFilename = "res/number/small_" + faceColor + "_K.png"; break;
+        default: smallFaceFilename = "res/number/small_" + faceColor + "_" + std::to_string(faceValue) + ".png"; break;
+        }
 
-    CCLOG("Loading big face: %s", bigFaceFilename.c_str());
-    _faceSprite = Sprite::create(bigFaceFilename);
-    if (_faceSprite) {
-        // …Ë÷√¥Û ˝◊÷‘⁄ø®≈∆’˝÷–º‰∆´œ¬µƒŒª÷√£¨±‹√‚”Î∂•≤ø÷ÿµ˛
-        _faceSprite->setPosition(Vec2(50, 60));  // ¥”75µ˜’˚µΩ60£¨œÚœ¬“∆∂Ø
-        _cardSprite->addChild(_faceSprite);
-        CCLOG("Big face sprite created successfully");
-    }
-    
+        auto smallFaceSprite = Sprite::create(smallFaceFilename);
+        if (smallFaceSprite) {
+            smallFaceSprite->setPosition(Vec2(25, _cardSprite->getContentSize().height - 25));
+            _cardSprite->addChild(smallFaceSprite);
+        }
 
-    // ¥¥Ω®◊Û…œΩ«–° ˝◊÷
-    std::string smallFaceFilename;
-    switch (face) {
-    case CFT_ACE:   smallFaceFilename = "number/small_" + faceColor + "_A.png"; break;
-    case CFT_TWO:   smallFaceFilename = "number/small_" + faceColor + "_2.png"; break;
-    case CFT_THREE: smallFaceFilename = "number/small_" + faceColor + "_3.png"; break;
-    case CFT_FOUR:  smallFaceFilename = "number/small_" + faceColor + "_4.png"; break;
-    case CFT_FIVE:  smallFaceFilename = "number/small_" + faceColor + "_5.png"; break;
-    case CFT_SIX:   smallFaceFilename = "number/small_" + faceColor + "_6.png"; break;
-    case CFT_SEVEN: smallFaceFilename = "number/small_" + faceColor + "_7.png"; break;
-    case CFT_EIGHT: smallFaceFilename = "number/small_" + faceColor + "_8.png"; break;
-    case CFT_NINE:  smallFaceFilename = "number/small_" + faceColor + "_9.png"; break;
-    case CFT_TEN:   smallFaceFilename = "number/small_" + faceColor + "_10.png"; break;
-    case CFT_JACK:  smallFaceFilename = "number/small_" + faceColor + "_J.png"; break;
-    case CFT_QUEEN: smallFaceFilename = "number/small_" + faceColor + "_Q.png"; break;
-    case CFT_KING:  smallFaceFilename = "number/small_" + faceColor + "_K.png"; break;
-    default:        smallFaceFilename = "number/small_" + faceColor + "_A.png"; break;
-    }
+        // Âè≥‰∏äËßíËä±Ëâ≤
+        std::string suitFilename;
+        switch (suit) {
+        case CardSuitType::CLUBS:    suitFilename = "res/suits/club.png"; break;
+        case CardSuitType::DIAMONDS: suitFilename = "res/suits/diamond.png"; break;
+        case CardSuitType::HEARTS:   suitFilename = "res/suits/heart.png"; break;
+        case CardSuitType::SPADES:   suitFilename = "res/suits/spade.png"; break;
+        default: suitFilename = ""; break;
+        }
 
-    CCLOG("Loading small face: %s", smallFaceFilename.c_str());
-    auto smallFaceSprite = Sprite::create(smallFaceFilename);
-    if (smallFaceSprite) {
-        // …Ë÷√–° ˝◊÷‘⁄◊Û…œΩ«∏¸Ω«¬‰µƒŒª÷√
-        smallFaceSprite->setPosition(Vec2(10, 130));  
-        _cardSprite->addChild(smallFaceSprite);
-        CCLOG("Small face sprite created successfully");
-    }
-    
-
-    // ¥¥Ω®ª®…´æ´¡È
-    std::string suitFilename;
-    switch (suit) {
-    case CST_CLUBS:    suitFilename = "suits/club.png"; break;
-    case CST_DIAMONDS: suitFilename = "suits/diamond.png"; break;
-    case CST_HEARTS:   suitFilename = "suits/heart.png"; break;
-    case CST_SPADES:   suitFilename = "suits/spade.png"; break;
-    default:           suitFilename = ""; break;
-    }
-
-    CCLOG("Loading suit: %s", suitFilename.c_str());
-    if (!suitFilename.empty()) {
-        _suitSprite = Sprite::create(suitFilename);
-        if (_suitSprite) {
-            // …Ë÷√ª®…´‘⁄”“…œΩ«∏¸Ω«¬‰µƒŒª÷√
-            _suitSprite->setPosition(Vec2(90, 130));  // ¥”(75,125)µ˜’˚µΩ(80,130)£¨∏¸øøΩ«¬‰
-            _cardSprite->addChild(_suitSprite);
-            CCLOG("Suit sprite created successfully");
+        if (!suitFilename.empty()) {
+            _suitSprite = Sprite::create(suitFilename);
+            if (_suitSprite) {
+                _suitSprite->setPosition(Vec2(_cardSprite->getContentSize().width - 25, _cardSprite->getContentSize().height - 25));
+                _cardSprite->addChild(_suitSprite);
+            }
         }
     }
+    else {
+        _cardSprite = Sprite::create("res/card_general.png");
+        if (!_cardSprite) {
+            _cardSprite = Sprite::create();
+            auto drawNode = DrawNode::create();
+            Vec2 rectangle[4];
+            rectangle[0] = Vec2(0, 0);
+            rectangle[1] = Vec2(100, 0);
+            rectangle[2] = Vec2(100, 150);
+            rectangle[3] = Vec2(0, 150);
+            drawNode->drawPolygon(rectangle, 4, Color4F(0.3f, 0.3f, 0.5f, 1.0f), 1, Color4F(0.0f, 0.0f, 0.0f, 1.0f));
+            _cardSprite->addChild(drawNode);
+            _cardSprite->setContentSize(Size(100, 150));
+        }
+        addChild(_cardSprite);
+    }
 
-    // …Ë÷√¥•√˛º‡Ã˝ - ±ÿ–Î‘⁄À˘”–œ‘ æ…Ë÷√ÕÍ≥…∫Ûµ˜”√
-    setupTouchListener();
-
-    CCLOG("Card %d setup complete, content size: %.1fx%.1f",
-        _cardId, getContentSize().width, getContentSize().height);
+    setupTouchHandling();
 }
 
-
-void CardView::playMoveAnimation(const Vec2& targetPosition, float duration,
-    std::function<void()> callback)
+void CardView::setupTouchHandling()
 {
-    auto moveAction = MoveTo::create(duration, targetPosition);
-    auto sequence = Sequence::create(
-        moveAction,
-        CallFunc::create([callback]() {
-            if (callback) callback();
-            }),
-        nullptr
-    );
+    _eventDispatcher->removeEventListenersForTarget(this);
 
-    this->runAction(sequence);
+    auto listener = EventListenerTouchOneByOne::create();
+    listener->setSwallowTouches(true);
+
+    listener->onTouchBegan = [this](Touch* touch, Event* event) -> bool {
+        if (!_cardSprite || !isVisible()) return false;
+
+        Vec2 locationInNode = convertToNodeSpace(touch->getLocation());
+        Size s = _cardSprite->getContentSize();
+        // ‰ΩøÁî®‰ª•ÈîöÁÇπ(0.5,0.5)‰∏∫‰∏≠ÂøÉÁöÑÊ£ÄÊµãÁü©ÂΩ¢ÔºåÂπ∂Êâ©Â§ß20ÂÉèÁ¥†ÂÆπÂ∑Æ
+        float padding = 20.0f;
+        Rect rect(-s.width / 2 - padding, -s.height / 2 - padding,
+                  s.width + padding * 2, s.height + padding * 2);
+
+        if (rect.containsPoint(locationInNode)) {
+            _cardSprite->setColor(Color3B{200, 200, 255});
+            return true;
+        }
+        return false;
+        };
+
+    listener->onTouchMoved = [this](Touch* touch, Event* event) {
+        if (!_cardSprite) return;
+        Vec2 locationInNode = convertToNodeSpace(touch->getLocation());
+        Size s = _cardSprite->getContentSize();
+        float padding = 20.0f;
+        Rect rect(-s.width / 2 - padding, -s.height / 2 - padding,
+                  s.width + padding * 2, s.height + padding * 2);
+
+        if (!rect.containsPoint(locationInNode)) {
+            _cardSprite->setColor(Color3B::WHITE);
+        } else {
+            _cardSprite->setColor(Color3B{200, 200, 255});
+        }
+        };
+
+    listener->onTouchEnded = [this](Touch* touch, Event* event) {
+        if (_cardSprite) {
+            _cardSprite->setColor(Color3B::WHITE);
+        }
+
+        // Âè™ÊúâÂú®ÊùæÂºÄÊó∂ÊâãÊåá‰ªçÂú®Âç°ÁâåÂå∫ÂüüÊâçËß¶ÂèëÁÇπÂáª
+        Vec2 locationInNode = convertToNodeSpace(touch->getLocation());
+        Size s = _cardSprite ? _cardSprite->getContentSize() : Size(140, 200);
+        float padding = 20.0f;
+        Rect rect(-s.width / 2 - padding, -s.height / 2 - padding,
+                  s.width + padding * 2, s.height + padding * 2);
+
+        if (rect.containsPoint(locationInNode) && _clickCallback) {
+            CCLOG("CardView: Valid click on card %d", _cardId);
+            _clickCallback(_cardId);
+        } else {
+            CCLOG("CardView: Touch ended outside card %d area", _cardId);
+        }
+        };
+
+    listener->onTouchCancelled = [this](Touch* touch, Event* event) {
+        if (_cardSprite) {
+            _cardSprite->setColor(Color3B::WHITE);
+        }
+        };
+
+    _eventDispatcher->addEventListenerWithSceneGraphPriority(listener, this);
 }
 
-void CardView::playReverseAnimation(const Vec2& originalPosition, float duration,
-    std::function<void()> callback)
+void CardView::onTouched()
 {
-    auto moveAction = MoveTo::create(duration, originalPosition);
-    auto sequence = Sequence::create(
-        moveAction,
-        CallFunc::create([callback]() {
-            if (callback) callback();
-            }),
-        nullptr
-    );
+    if (_clickCallback) {
+        _clickCallback(_cardId);
+    }
+}
 
-    this->runAction(sequence);
+void CardView::playMoveAnimation(const cocos2d::Vec2& targetPosition, float duration, const std::function<void()>& callback)
+{
+    auto move = MoveTo::create(duration, targetPosition);
+    if (callback) {
+        auto sequence = Sequence::create(move, CallFunc::create(callback), nullptr);
+        runAction(sequence);
+    }
+    else {
+        runAction(move);
+    }
+}
+
+void CardView::playMatchAnimation(const std::function<void()>& callback)
+{
+    auto scaleUp = ScaleTo::create(0.1f, 1.2f);
+    auto scaleDown = ScaleTo::create(0.1f, 1.0f);
+    if (callback) {
+        auto sequence = Sequence::create(scaleUp, scaleDown, CallFunc::create(callback), nullptr);
+        runAction(sequence);
+    }
+    else {
+        auto sequence = Sequence::create(scaleUp, scaleDown, nullptr);
+        runAction(sequence);
+    }
+}
+
+void CardView::setTouchEnabled(bool enabled)
+{
+    _eventDispatcher->pauseEventListenersForTarget(this, !enabled);
+    CCLOG("CardView: Touch %s for card %d", enabled ? "enabled" : "disabled", _cardId);
 }

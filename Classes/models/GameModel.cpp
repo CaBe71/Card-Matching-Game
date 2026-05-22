@@ -1,113 +1,147 @@
 #include "GameModel.h"
 
 GameModel::GameModel()
+    : _bottomCard(nullptr)
 {
 }
 
 GameModel::~GameModel()
 {
-    // ÇåÀíÄÚ´æ
-    for (auto card : _playfieldCards) {
+    // æ¸…ç†æ‰€æœ‰å¡ç‰Œå¯¹è±¡
+    for (auto card : _playFieldCards) {
         delete card;
     }
     for (auto card : _stackCards) {
         delete card;
     }
-}
-
-// ¼ÓÈëÅÆ¶Ñ
-
-void GameModel::addPlayfieldCard(CardModel* card)
-{
-    card->setInPlayfield(true);
-    _playfieldCards.push_back(card);
-}
-
-void GameModel::addStackCard(CardModel* card)
-{
-    card->setInPlayfield(false);
-    _stackCards.push_back(card);
-}
-
-CardModel* GameModel::getCardById(int cardId)
-{
-    // ÔÚ×ÀÃæÅÆÖÐ²éÕÒ
-    for (auto card : _playfieldCards) {
-        if (card->getCardId() == cardId) {
-            return card;
-        }
+    if (_bottomCard) {
+        delete _bottomCard;
     }
+}
 
-    // ÔÚÊÖÅÆÇøÖÐ²éÕÒ
-    for (auto card : _stackCards) {
-        if (card->getCardId() == cardId) {
-            return card;
-        }
+void GameModel::setPlayFieldCards(const std::vector<CardModel*>& cards)
+{
+    _playFieldCards = cards;
+    updateCardMap();
+}
+
+void GameModel::setBottomCard(CardModel* card)
+{
+    _bottomCard = card;
+    if (card) {
+        _cardMap[card->getCardId()] = card;
     }
+}
 
+void GameModel::setStackCards(const std::vector<CardModel*>& cards)
+{
+    _stackCards = cards;
+    updateCardMap();
+}
+
+CardModel* GameModel::getCardById(int cardId) const
+{
+    auto it = _cardMap.find(cardId);
+    if (it != _cardMap.end()) {
+        return it->second;
+    }
     return nullptr;
 }
 
-CardModel* GameModel::getTopStackCard()
+bool GameModel::removeCardFromPlayField(int cardId)
 {
-    // ÏÖÔÚ¶¥²¿ÅÆ¾ÍÊÇµ×ÅÆ
-    return _bottomCard;
-}
-bool GameModel::removePlayfieldCard(int cardId)
-{
-    return removeCardFromVector(_playfieldCards, cardId);
-}
-
-bool GameModel::removeStackCard(int cardId)
-{
-    return removeCardFromVector(_stackCards, cardId);
-}
-
-bool GameModel::removeCardFromVector(std::vector<CardModel*>& cards, int cardId)
-{
-    for (auto it = cards.begin(); it != cards.end(); ++it) {
+    for (auto it = _playFieldCards.begin(); it != _playFieldCards.end(); ++it) {
         if ((*it)->getCardId() == cardId) {
-            // ×¢Òâ£ºÕâÀï²»É¾³ýCardModel¶ÔÏó£¬ÒòÎª¿ÉÄÜÔÚÆäËûµØ·½»¹ÔÚÊ¹ÓÃ
-            cards.erase(it);
-            CCLOG("Removed card %d from vector", cardId);
+            _playFieldCards.erase(it);
+            _cardMap.erase(cardId);
             return true;
         }
     }
-    CCLOG("Card %d not found in vector", cardId);
     return false;
 }
 
-
-
-bool GameModel::removeReserveCard(int cardId)
+CardModel* GameModel::drawCardFromStack()
 {
-    return removeCardFromVector(_reserveCards, cardId);
-}
-
-// ´Ó±¸ÓÃÅÆÖÐ³éÒ»ÕÅ
-CardModel* GameModel::drawFromReserve()
-{
-    if (_reserveCards.empty()) {
-        CCLOG("No reserve cards to draw");
+    if (_stackCards.empty()) {
+        CCLOG("GameModel: Stack is empty, cannot draw");
         return nullptr;
     }
 
-    // ´Ó±¸ÓÃÅÆ¶Ñ³éÈ¡×îºóÒ»ÕÅÅÆ£¨Õ»¶¥£©
-    CardModel* card = _reserveCards.back();
-    _reserveCards.pop_back();
+    CardModel* topCard = _stackCards.back();
+    _stackCards.pop_back();
 
-    CCLOG("Drew card from reserve: ID=%d, Remaining: %zu",
-        card->getCardId(), _reserveCards.size());
+    // æ›´æ–°å¡ç‰Œæ˜ å°„
+    _cardMap.erase(topCard->getCardId());
 
-    return card;
+    CCLOG("GameModel: Drew card %d from stack, remaining stack size: %d",
+        topCard->getCardId(), _stackCards.size());
+
+    return topCard;
 }
 
-
-// Íù±¸ÓÃÅÆ¶Ñ¼ÓÅÆ
-void GameModel::addReserveCard(CardModel* card)
+void GameModel::addCardToBottom(CardModel* card)
 {
-    card->setInPlayfield(false);
-    _reserveCards.push_back(card);
-    CCLOG("Added card to reserve: ID=%d, Total reserve: %zu",
-        card->getCardId(), _reserveCards.size());
+    CCLOG("GameModel: Adding card %d to bottom, current bottom card: %p",
+        card ? card->getCardId() : -1, _bottomCard);
+
+    if (_bottomCard) {
+        // å°†å½“å‰åº•éƒ¨å¡ç‰Œç§»å›žå †æ ˆï¼ˆå¦‚æžœéœ€è¦ï¼‰
+        CCLOG("GameModel: Moving current bottom card %d back to stack", _bottomCard->getCardId());
+        _stackCards.insert(_stackCards.begin(), _bottomCard);
+    }
+
+    _bottomCard = card;
+    if (card) {
+        _cardMap[card->getCardId()] = card;
+        CCLOG("GameModel: New bottom card set to %d", card->getCardId());
+    }
+
+    CCLOG("GameModel: Stack size after addToBottom: %d", _stackCards.size());
+}
+
+void GameModel::updateCardMap()
+{
+    _cardMap.clear();
+    for (auto card : _playFieldCards) {
+        _cardMap[card->getCardId()] = card;
+    }
+    for (auto card : _stackCards) {
+        _cardMap[card->getCardId()] = card;
+    }
+    if (_bottomCard) {
+        _cardMap[_bottomCard->getCardId()] = _bottomCard;
+    }
+}
+
+CardModel* GameModel::drawCardFromStackToPlayField(const cocos2d::Vec2& position)
+{
+    if (_stackCards.empty()) {
+        CCLOG("GameModel: Stack is empty, cannot draw to play field");
+        return nullptr;
+    }
+
+    CardModel* topCard = _stackCards.back();
+    _stackCards.pop_back();
+
+    // è®¾ç½®å¡ç‰Œä½ç½®å’ŒçŠ¶æ€
+    topCard->setPosition(position);
+    topCard->setFlipped(true); // æ¡Œé¢å¡ç‰Œæ­£é¢æœä¸Š
+    _playFieldCards.push_back(topCard);
+
+    // æ›´æ–°æ˜ å°„è¡¨
+    _cardMap[topCard->getCardId()] = topCard;
+
+    CCLOG("GameModel: Drew card %d from stack to play field at (%.1f, %.1f), stack remaining: %d",
+        topCard->getCardId(), position.x, position.y, _stackCards.size());
+
+    return topCard;
+}
+
+void GameModel::addCardToPlayField(CardModel* card)
+{
+    if (card) {
+        _playFieldCards.push_back(card);
+        _cardMap[card->getCardId()] = card;
+        CCLOG("GameModel: Added card %d to play field", card->getCardId());
+    }
 }

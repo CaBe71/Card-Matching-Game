@@ -1,295 +1,153 @@
 #include "GameView.h"
+#include "models/GameModel.h"
+#include "models/CardModel.h"
 
 USING_NS_CC;
 
-bool GameView::init()
-{
-    if (!Layer::init()) {
-        return false;
-    }
+GameView* GameView::create() {
+    GameView* pRet = new GameView();
+    if (pRet && pRet->init()) { pRet->autorelease(); return pRet; }
+    delete pRet; return nullptr;
+}
 
-    // ÉèÖÃ²ã´óÐ¡
-    this->setContentSize(Size(1080, 2080));
-
-    // ´´½¨ÓÎÏ·ÇøÓò
-    createPlayfieldArea();
-    createStackArea();
-    createBottomCardArea();
-    createUndoButton();
-
-    CCLOG("GameView initialized successfully");
+bool GameView::init() {
+    if (!Node::init()) return false;
+    setupUI();
     return true;
 }
 
-void GameView::createPlayfieldArea()
-{
-    _playfieldLayer = Layer::create();
-    _playfieldLayer->setContentSize(Size(1080, 1200));
-    _playfieldLayer->setPosition(Vec2(0, 800));
-    this->addChild(_playfieldLayer);
+void GameView::setupUI() {
+    _playFieldNode = Node::create();
+    _bottomNode = Node::create();
+    _drawAreaNode = Node::create();
 
-    // µ÷ÊÔ±³¾°
-    auto debugBg = LayerColor::create(Color4B(200, 200, 200, 100), 1080, 1200);
-    _playfieldLayer->addChild(debugBg, -1);
+    auto playFieldBg = LayerColor::create(Color4B{30, 45, 30, 255}, 1080, 1500);
+    _playFieldNode->addChild(playFieldBg, -1);
 
-    auto label = Label::createWithSystemFont("PLAYFIELD", "Arial", 24);
-    label->setPosition(Vec2(540, 1150));
-    label->setTextColor(Color4B::BLACK);
-    _playfieldLayer->addChild(label);
+    auto goldTop = LayerColor::create(Color4B{180, 160, 60, 180}, 1080, 2);
+    goldTop->setPosition(0, 1498);
+    _playFieldNode->addChild(goldTop, 1);
+    auto goldBot = LayerColor::create(Color4B{180, 160, 60, 180}, 1080, 2);
+    _playFieldNode->addChild(goldBot, 1);
+
+    auto bottomBg = LayerColor::create(Color4B{20, 30, 45, 255}, 1080, 580);
+    addChild(bottomBg, -2);
+
+    auto divider = LayerColor::create(Color4B{180, 160, 60, 120}, 1080, 2);
+    divider->setPosition(0, 578);
+    addChild(divider, 1);
+
+    addChild(_playFieldNode);
+    addChild(_bottomNode);
+    addChild(_drawAreaNode);
+
+    _playFieldNode->setPosition(0, 580);
+    _bottomNode->setPosition(340, 290);
+    _drawAreaNode->setPosition(740, 290);
+    _drawAreaNode->setContentSize(Size(180, 260));
+
+    // åº•ç‰ŒåŒºè£…é¥°
+    auto bottomDeco = DrawNode::create();
+    Vec2 bp[4] = {Vec2(-90,-130), Vec2(90,-130), Vec2(90,130), Vec2(-90,130)};
+    bottomDeco->drawPolygon(bp, 4, Color4F{0.15f,0.20f,0.35f,1.0f}, 1.5f, Color4F{0.55f,0.48f,0.18f,1.0f});
+    _bottomNode->addChild(bottomDeco, -1);
+    auto bottomLabel = Label::createWithSystemFont("BOTTOM", "Arial Bold", 16);
+    bottomLabel->setPosition(0, -100);
+    bottomLabel->setTextColor(Color4B{200, 180, 100, 255});
+    _bottomNode->addChild(bottomLabel);
+
+    // DRAWåŒºï¼šç©ºç‰ŒèƒŒæ ·å¼è£…é¥°ï¼ˆç‚¹å‡»è§¦å‘æŠ½ç‰Œï¼‰
+    auto drawDeco = DrawNode::create();
+    Vec2 dp[4] = {Vec2(-90,-130), Vec2(90,-130), Vec2(90,130), Vec2(-90,130)};
+    drawDeco->drawPolygon(dp, 4, Color4F{0.12f,0.18f,0.30f,1.0f}, 1.5f, Color4F{0.55f,0.48f,0.18f,1.0f});
+    _drawAreaNode->addChild(drawDeco, -1);
+    auto drawLabel = Label::createWithSystemFont("DRAW", "Arial Bold", 16);
+    drawLabel->setPosition(0, -95);
+    drawLabel->setTextColor(Color4B{150, 200, 255, 255});
+    _drawAreaNode->addChild(drawLabel);
+
+    setupDrawAreaTouch();
 }
 
-void GameView::createStackArea()
+void GameView::setupDrawAreaTouch()
 {
-    _stackLayer = Layer::create();
-    _stackLayer->setContentSize(Size(1080, 600));
-    _stackLayer->setPosition(Vec2(0, 200));
-    this->addChild(_stackLayer);
+    if (_drawAreaTouchListener) {
+        _eventDispatcher->removeEventListener(_drawAreaTouchListener);
+        _drawAreaTouchListener = nullptr;
+    }
+    _drawAreaTouchListener = EventListenerTouchOneByOne::create();
+    _drawAreaTouchListener->setSwallowTouches(true);
 
-    // µ÷ÊÔ±³¾°
-    auto debugBg = LayerColor::create(Color4B(150, 150, 150, 100), 1080, 600);
-    _stackLayer->addChild(debugBg, -1);
+    _drawAreaTouchListener->onTouchBegan = [this](Touch* touch, Event* event) -> bool {
+        if (!_drawAreaNode || !_drawAreaNode->isVisible()) return false;
+        Vec2 loc = _drawAreaNode->convertToNodeSpace(touch->getLocation());
+        return Rect(-90, -130, 180, 260).containsPoint(loc);
+    };
 
-    auto label = Label::createWithSystemFont("STACK & RESERVE", "Arial", 24);
-    label->setPosition(Vec2(540, 550));
-    label->setTextColor(Color4B::BLACK);
-    _stackLayer->addChild(label);
+    _drawAreaTouchListener->onTouchEnded = [this](Touch* touch, Event* event) {
+        CCLOG("GameView: DRAW area clicked!");
+        if (_drawAreaClickCallback) _drawAreaClickCallback();
+    };
+
+    _eventDispatcher->addEventListenerWithSceneGraphPriority(_drawAreaTouchListener, _drawAreaNode);
 }
 
-void GameView::createBottomCardArea()
-{
-    _bottomCardLayer = Layer::create();
-    _bottomCardLayer->setContentSize(Size(200, 200));
-    _bottomCardLayer->setPosition(Vec2(440, 250));
-    this->addChild(_bottomCardLayer);
+void GameView::updateView(GameModel* gameModel) {
+    if (!gameModel) return;
 
-    // µ×ÅÆÇøÓò±³¾°
-    auto debugBg = LayerColor::create(Color4B(100, 100, 200, 150), 200, 200);
-    _bottomCardLayer->addChild(debugBg, -1);
+    std::vector<Node*> nodesToRemove;
+    for (auto child : _playFieldNode->getChildren())
+        if (dynamic_cast<CardView*>(child)) nodesToRemove.push_back(child);
+    for (auto child : _bottomNode->getChildren())
+        if (dynamic_cast<CardView*>(child)) nodesToRemove.push_back(child);
+    // DRAW åŒºä¸ç®¡ç† CardViewï¼Œä¸éœ€è¦æ¸…ç†
 
-    auto label = Label::createWithSystemFont("BOTTOM CARD\n(Click to Draw)", "Arial", 20);
-    label->setPosition(Vec2(100, 180));
-    label->setTextColor(Color4B::WHITE);
-    label->setAlignment(TextHAlignment::CENTER);
-    _bottomCardLayer->addChild(label);
-}
-
-void GameView::createUndoButton()
-{
-    auto undoButton = ui::Button::create();
-    undoButton->setTitleText("UNDO");
-    undoButton->setTitleFontSize(24);
-    undoButton->setPosition(Vec2(900, 1900));
-    undoButton->addClickEventListener([this](Ref* sender) {
-        CCLOG("Undo button clicked");
-        if (_undoCallback) {
-            _undoCallback();
-        }
-        });
-    this->addChild(undoButton);
-}
-
-void GameView::initializeWithCards(const std::vector<CardModel*>& playfieldCards,
-    const std::vector<CardModel*>& stackCards,
-    CardModel* bottomCard,
-    const std::vector<CardModel*>& reserveCards)
-{
-    CCLOG("=== GameView::initializeWithCards ===");
-    CCLOG("Playfield: %zu, Stack: %zu, Reserve: %zu, Bottom: %s",
-        playfieldCards.size(), stackCards.size(), reserveCards.size(),
-        bottomCard ? "YES" : "NO");
-
-    // Çå³ýËùÓÐÏÖÓÐÊÓÍ¼
+    for (auto node : nodesToRemove) node->removeFromParent();
     _cardViews.clear();
-    _playfieldLayer->removeAllChildren();
-    _stackLayer->removeAllChildren();
-    _bottomCardLayer->removeAllChildren();
 
-    // ÖØÐÂ´´½¨ÇøÓò±³¾°
-    createPlayfieldArea();
-    createStackArea();
-    createBottomCardArea();
-
-    // ´´½¨Ö÷ÅÆÇø¿¨ÅÆ
-    for (auto cardModel : playfieldCards) {
-        auto cardView = CardView::create();
-        if (cardView) {
-            cardView->updateWithModel(cardModel);
-            cardView->setClickCallback(_cardClickCallback);
-            _playfieldLayer->addChild(cardView);
-            _cardViews[cardModel->getCardId()] = cardView;
-            CCLOG("Created playfield card: ID=%d", cardModel->getCardId());
-        }
-    }
-
-    // ´´½¨ÊÖÅÆÇø¿¨ÅÆ
-    for (auto cardModel : stackCards) {
-        auto cardView = CardView::create();
-        if (cardView) {
-            cardView->updateWithModel(cardModel);
-            cardView->setClickCallback(_cardClickCallback);
-            _stackLayer->addChild(cardView);
-            _cardViews[cardModel->getCardId()] = cardView;
-            CCLOG("Created stack card: ID=%d", cardModel->getCardId());
-        }
-    }
-
-    // ´´½¨µ×ÅÆ£¨È·±£Î»ÖÃÕýÈ·£©
-    if (bottomCard) {
-        _bottomCardView = CardView::create();
-        if (_bottomCardView) {
-            // ÖØÒª£ºÉèÖÃµ×ÅÆÔÚµ×ÅÆ²ãÄÚµÄÏà¶ÔÎ»ÖÃ
-            bottomCard->setPosition(Vec2(160, 190)); // ÔÚµ×ÅÆ²ãÖÐÐÄ
-            _bottomCardView->updateWithModel(bottomCard);
-            _bottomCardView->setClickCallback(_cardClickCallback);
-            _bottomCardLayer->addChild(_bottomCardView);
-            _cardViews[bottomCard->getCardId()] = _bottomCardView;
-
-            CCLOG("Created bottom card: ID=%d, Face=%d at (%.1f, %.1f)",
-                bottomCard->getCardId(), bottomCard->getFace(),
-                bottomCard->getPosition().x, bottomCard->getPosition().y);
-        }
-    }
-    else {
-        CCLOG("No bottom card to create");
-    }
-
-    // ´´½¨±¸ÅÆ¶ÑÏÔÊ¾
-    createReserveDeckDisplay(reserveCards);
-
-    CCLOG("Total card views created: %zu", _cardViews.size());
-}
-
-void GameView::createReserveArea()
-{
-    auto reserveArea = Layer::create();
-    reserveArea->setContentSize(Size(120, 180));
-    reserveArea->setPosition(Vec2(800, 250));  // ±¸ÅÆÇøÔÚÊÖÅÆÇøÄÚµÄÎ»ÖÃ
-    _stackLayer->addChild(reserveArea);
-
-    // ±¸ÅÆÇø±³¾°
-    auto reserveBg = LayerColor::create(Color4B(60, 60, 60, 255), 120, 180);
-    reserveArea->addChild(reserveBg);
-
-
-    // Ìí¼Ó´¥Ãþ¼àÌýÆ÷ÈÃ±¸ÅÆ¶Ñ¿Éµã»÷
-    auto listener = EventListenerTouchOneByOne::create();
-    listener->setSwallowTouches(true);
-    listener->onTouchBegan = [this](Touch* touch, Event* event) -> bool {
-        Vec2 touchLocation = touch->getLocation();
-        auto reserveArea = _stackLayer->getChildByTag(100);
-
-        if (reserveArea && reserveArea->getBoundingBox().containsPoint(touchLocation)) {
-            CCLOG("Reserve deck clicked");
-            // ·¢ËÍÌØÊâ¿¨ÅÆID±íÊ¾±¸ÅÆ¶Ñµã»÷
-            if (_cardClickCallback) {
-                _cardClickCallback(-999); // Ê¹ÓÃÌØÊâID±íÊ¾±¸ÅÆ¶Ñ
+    // æ¡Œé¢å¡ç‰Œ
+    for (auto cardModel : gameModel->getPlayFieldCards()) {
+        if (cardModel) {
+            CardView* cv = CardView::create();
+            if (cv) {
+                cv->updateView(cardModel);
+                cv->setClickCallback(_cardClickCallback);
+                _cardViews[cardModel->getCardId()] = cv;
+                _playFieldNode->addChild(cv);
             }
-            return true;
-        }
-        return false;
-        };
-    _eventDispatcher->addEventListenerWithSceneGraphPriority(listener, reserveArea);
-
-    CCLOG("Reserve area created at position (800, 250)");
-}
-
-void GameView::createReserveDeckDisplay(const std::vector<CardModel*>& reserveCards)
-{
-    auto reserveArea = _stackLayer->getChildByTag(100);
-    if (!reserveArea) {
-        CCLOG("? Reserve area not found! Creating new one...");
-        createReserveArea();  // Èç¹ûÕÒ²»µ½¾ÍÖØÐÂ´´½¨
-        reserveArea = _stackLayer->getChildByTag(100);
-        if (!reserveArea) return;
-    }
-
-    // Ö»ÒÆ³ý³ýÁË±³¾°ºÍ±êÇ©Ö®ÍâµÄÄÚÈÝ
-    auto children = reserveArea->getChildren();
-    for (auto it = children.begin(); it != children.end(); ) {
-        auto child = *it;
-        if (child->getTag() != 0) { // ±£ÁôÓÐtagµÄ×Ó½Úµã£¨±³¾°ºÍ±êÇ©£©
-            ++it;
-        }
-        else {
-            it = children.erase(it);
-            reserveArea->removeChild(child);
         }
     }
 
-
-    // ÏÔÊ¾±¸ÅÆÊýÁ¿
-    std::string reserveText = "CARDS\n" + std::to_string(reserveCards.size());
-    auto reserveLabel = Label::createWithSystemFont(reserveText, "Arial", 16);
-    reserveLabel->setPosition(Vec2(60, 90));  // µ÷Õûµ½ÖÐÐÄÎ»ÖÃ
-    reserveLabel->setTextColor(Color4B::WHITE);
-    reserveLabel->setAlignment(TextHAlignment::CENTER);
-    reserveArea->addChild(reserveLabel);
-
-    // Èç¹û±¸ÅÆ¶ÑÓÐ¿¨ÅÆ£¬ÏÔÊ¾×îÉÏÃæÒ»ÕÅµÄÔ¤ÀÀ
-    if (!reserveCards.empty()) {
-        auto topCardPreview = LayerColor::create(Color4B(255, 255, 255, 100), 80, 120);
-        topCardPreview->setPosition(Vec2(60, 30));  // µ÷Õûµ½ÏÂ·½Î»ÖÃ
-        reserveArea->addChild(topCardPreview);
-
-        // ÏÔÊ¾×îÉÏÃæÒ»ÕÅ¿¨ÅÆµÄÐÅÏ¢
-        CardModel* topCard = reserveCards.back();
-        std::string previewText = getFaceText(topCard->getFace()) + "\n" + getSuitText(topCard->getSuit());
-        auto previewLabel = Label::createWithSystemFont(previewText, "Arial", 12);
-        previewLabel->setPosition(Vec2(40, 60));
-        previewLabel->setTextColor(Color4B::BLACK);
-        previewLabel->setAlignment(TextHAlignment::CENTER);
-        topCardPreview->addChild(previewLabel);
-
-        CCLOG("Reserve deck display updated: %zu cards, top card: %s",
-            reserveCards.size(), previewText.c_str());
+    // åº•ç‰Œ
+    CardModel* bc = gameModel->getBottomCard();
+    if (bc) {
+        CardView* cv = CardView::create();
+        if (cv) {
+            bc->setFlipped(true);
+            cv->updateView(bc);
+            cv->setScale(1.1f);
+            _cardViews[bc->getCardId()] = cv;
+            _bottomNode->addChild(cv);
+        }
     }
+
+    // DRAW åŒºï¼šåªä¿ç•™è£…é¥°èƒŒæ™¯å’Œæ ‡ç­¾ï¼Œä¸æ·»åŠ ä»»ä½• CardView
+    // ç‚¹å‡»äº‹ä»¶ç”± setupDrawAreaTouch çš„ç›‘å¬å™¨ç›´æŽ¥å¤„ç†
 }
 
-std::string GameView::getFaceText(CardFaceType face)
-{
-    switch (face) {
-    case CFT_ACE:   return "A";
-    case CFT_TWO:   return "2";
-    case CFT_THREE: return "3";
-    case CFT_FOUR:  return "4";
-    case CFT_FIVE:  return "5";
-    case CFT_SIX:   return "6";
-    case CFT_SEVEN: return "7";
-    case CFT_EIGHT: return "8";
-    case CFT_NINE:  return "9";
-    case CFT_TEN:   return "10";
-    case CFT_JACK:  return "J";
-    case CFT_QUEEN: return "Q";
-    case CFT_KING:  return "K";
-    default:        return "?";
-    }
-}
-
-std::string GameView::getSuitText(CardSuitType suit)
-{
-    switch (suit) {
-    case CST_CLUBS:    return "?";
-    case CST_DIAMONDS: return "?";
-    case CST_HEARTS:   return "?";
-    case CST_SPADES:   return "?";
-    default:           return "?";
-    }
-}
-
-void GameView::playCardMatchAnimation(int movingCardId, const Vec2& targetPosition)
-{
-    auto it = _cardViews.find(movingCardId);
-    if (it != _cardViews.end()) {
-        it->second->playMoveAnimation(targetPosition, 0.5f, nullptr);
-        CCLOG("Playing match animation for card %d", movingCardId);
-    }
-}
-
-void GameView::playUndoAnimation(int cardId, const Vec2& originalPosition)
-{
+CardView* GameView::getCardView(int cardId) const {
     auto it = _cardViews.find(cardId);
-    if (it != _cardViews.end()) {
-        it->second->playReverseAnimation(originalPosition, 0.5f, nullptr);
-        CCLOG("Playing undo animation for card %d", cardId);
-    }
+    return (it != _cardViews.end()) ? it->second : nullptr;
+}
+
+void GameView::playMatchAnimation(int cardId, const std::function<void()>& callback) {
+    CardView* cv = getCardView(cardId);
+    if (cv) cv->playMatchAnimation(callback);
+    else if (callback) callback();
+}
+
+void GameView::playCardMoveAnimation(int cardId, const cocos2d::Vec2& tp, float dur, const std::function<void()>& callback) {
+    CardView* cv = getCardView(cardId);
+    if (cv) cv->playMoveAnimation(tp, dur, callback);
+    else if (callback) callback();
 }
